@@ -1,0 +1,487 @@
+.leaderboard-page {
+    min-height: 100vh;
+    padding: 120px 2rem 4rem;
+}
+
+.leaderboard-container {
+    max-width: 1400px;
+    margin: 0 auto;
+}
+
+/* Header */
+.leaderboard-header {
+    text-align: center;
+    margin-bottom: 3rem;
+}
+
+.leaderboard-header h1 {
+    font-size: clamp(3rem, 8vw, 5rem);
+    color: var(--accent-green);
+    margin-bottom: 1rem;
+}
+
+.header-subtitle {
+    color: var(--text-secondary);
+    font-size: 1.2rem;
+}
+
+/* Category Tabs */
+.category-tabs {
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 3rem;
+    justify-content: center;
+    flex-wrap: wrap;
+}
+
+.category-tab {
+    padding: 1rem 2.5rem;
+    background: var(--bg-secondary);
+    border: 2px solid var(--border-color);
+    color: var(--text-secondary);
+    font-family: 'Rubik Mono One', sans-serif;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    letter-spacing: 1px;
+}
+
+.category-tab:hover {
+    border-color: var(--accent-green);
+    color: var(--accent-green);
+}
+
+.category-tab.active {
+    background: var(--accent-green);
+    border-color: var(--accent-green);
+    color: var(--bg-primary);
+    box-shadow: 0 0 30px var(--glow-green);
+}
+
+/* Leaderboard Content */
+.leaderboard-content {
+    display: none;
+}
+
+.leaderboard-content.active {
+    display: block;
+}
+
+.leaderboard-info {
+    margin-bottom: 2rem;
+    padding: 2rem;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-left: 4px solid var(--accent-green);
+    border-radius: 8px;
+}
+
+.leaderboard-info h2 {
+    color: var(--accent-green);
+    font-family: 'Rubik Mono One', sans-serif;
+    font-size: 1.5rem;
+    margin-bottom: 0.5rem;
+}
+
+.leaderboard-info p {
+    color: var(--text-secondary);
+    line-height: 1.6;
+}
+
+/* Leaderboard Table */
+.leaderboard-table {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+.table-header {
+    display: grid;
+    grid-template-columns: 80px 2fr 1fr 1fr 1fr;
+    padding: 1.5rem;
+    background: var(--bg-tertiary);
+    border-bottom: 2px solid var(--accent-green);
+    font-weight: bold;
+    color: var(--accent-green);
+    font-size: 0.9rem;
+    letter-spacing: 1px;
+}
+
+.table-body {
+    display: flex;
+    flex-direction: column;
+}
+
+.table-row {
+    display: grid;
+    grid-template-columns: 80px 2fr 1fr 1fr 1fr;
+    padding: 1.5rem;
+    border-bottom: 1px solid var(--border-color);
+    transition: all 0.3s ease;
+    align-items: center;
+}
+
+.table-row:last-child {
+    border-bottom: none;
+}
+
+.table-row:hover {
+    background: rgba(125, 255, 125, 0.05);
+    transform: translateX(5px);
+}
+
+.table-row.top-rank {
+    background: rgba(125, 255, 125, 0.02);
+}
+
+/* Columns */
+.col-rank {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-family: 'Rubik Mono One', sans-serif;
+}
+
+.rank-medal {
+    font-size: 1.5rem;
+}
+
+.rank-number {
+    color: var(--text-primary);
+    font-size: 1.2rem;
+}
+
+.col-player {
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+}
+
+.player-name {
+    color: var(--text-primary);
+    font-weight: bold;
+    font-size: 1.1rem;
+}
+
+.player-name.trusted {
+    color: var(--accent-cyan);
+}
+
+.player-name.trusted::after {
+    content: '✓';
+    margin-left: 0.5rem;
+    color: var(--accent-green);
+}
+
+.player-role {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+}
+
+.col-messages,
+.col-reactions,
+.col-level,
+.col-score,
+.col-deaths {
+    color: var(--text-secondary);
+    font-size: 1rem;
+}
+
+.col-rp {
+    display: flex;
+    align-items: center;
+}
+
+.rp-value {
+    color: var(--accent-green);
+    font-weight: bold;
+    font-size: 1.2rem;
+    font-family: 'Rubik Mono One', sans-serif;
+}
+
+.col-badges {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    color: var(--text-secondary);
+}
+
+.badge-icon {
+    font-size: 1.2rem;
+}
+
+/* Game Leaderboard Specific */
+#gameLeaderboard .table-header {
+    grid-template-columns: 80px 2fr 1fr 1.2fr 1fr 0.8fr;
+}
+
+#gameLeaderboard .table-row {
+    grid-template-columns: 80px 2fr 1fr 1.2fr 1fr 0.8fr;
+}
+
+/* Rewards Grid */
+.rewards-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+    gap: 2rem;
+    margin-bottom: 3rem;
+}
+
+.reward-category {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 2rem;
+}
+
+.reward-category h3 {
+    color: var(--accent-green);
+    font-family: 'Rubik Mono One', sans-serif;
+    font-size: 1.2rem;
+    margin-bottom: 1.5rem;
+}
+
+/* Milestones */
+.milestone-list {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.milestone-item {
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+    padding: 1rem;
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border-color);
+    border-radius: 4px;
+    transition: all 0.3s ease;
+}
+
+.milestone-item:hover {
+    border-color: var(--accent-green);
+    transform: translateX(5px);
+}
+
+.milestone-badge {
+    width: 60px;
+    height: 60px;
+    background: var(--accent-green);
+    color: var(--bg-primary);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.2rem;
+    font-weight: bold;
+    font-family: 'Rubik Mono One', sans-serif;
+    box-shadow: 0 0 20px var(--glow-green);
+    flex-shrink: 0;
+}
+
+.milestone-badge.locked {
+    background: var(--bg-primary);
+    color: var(--text-muted);
+    border: 2px solid var(--border-color);
+    box-shadow: none;
+}
+
+.milestone-info {
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+}
+
+.milestone-name {
+    color: var(--text-primary);
+    font-weight: bold;
+    font-size: 1.1rem;
+}
+
+.milestone-desc {
+    color: var(--text-muted);
+    font-size: 0.9rem;
+}
+
+/* Hardcore Badges */
+.hardcore-badges-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+    gap: 1rem;
+}
+
+.hardcore-badge {
+    background: var(--accent-green);
+    padding: 1.5rem 1rem;
+    text-align: center;
+    border-radius: 8px;
+    box-shadow: 0 0 20px var(--glow-green);
+    transition: all 0.3s ease;
+}
+
+.hardcore-badge:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 5px 30px var(--glow-green);
+}
+
+.hardcore-badge.locked {
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border-color);
+    box-shadow: none;
+    opacity: 0.6;
+}
+
+.badge-name {
+    color: var(--bg-primary);
+    font-family: 'Rubik Mono One', sans-serif;
+    font-size: 1.2rem;
+    margin-bottom: 0.5rem;
+}
+
+.hardcore-badge.locked .badge-name {
+    color: var(--text-muted);
+}
+
+.badge-progress {
+    font-size: 0.85rem;
+    color: var(--bg-primary);
+}
+
+.hardcore-badge.locked .badge-progress {
+    color: var(--text-muted);
+}
+
+/* Achievements */
+.achievement-list {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.achievement-item {
+    display: flex;
+    align-items: center;
+    gap: 1.5rem;
+    padding: 1rem;
+    background: var(--bg-tertiary);
+    border: 1px solid var(--accent-green);
+    border-radius: 4px;
+    transition: all 0.3s ease;
+}
+
+.achievement-item:hover {
+    transform: translateX(5px);
+    box-shadow: 0 0 20px var(--glow-green);
+}
+
+.achievement-item.locked {
+    border-color: var(--border-color);
+    opacity: 0.5;
+}
+
+.achievement-icon {
+    font-size: 2.5rem;
+    flex-shrink: 0;
+}
+
+.achievement-info {
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+}
+
+.achievement-name {
+    color: var(--text-primary);
+    font-weight: bold;
+    font-size: 1.1rem;
+}
+
+.achievement-desc {
+    color: var(--text-muted);
+    font-size: 0.9rem;
+}
+
+/* Future Rewards */
+.future-rewards {
+    margin-top: 3rem;
+}
+
+.future-notice {
+    background: linear-gradient(135deg, rgba(125, 255, 125, 0.1), rgba(95, 255, 255, 0.1));
+    border: 2px solid var(--accent-cyan);
+    border-radius: 8px;
+    padding: 2.5rem;
+    text-align: center;
+}
+
+.future-notice h3 {
+    color: var(--accent-cyan);
+    font-family: 'Rubik Mono One', sans-serif;
+    font-size: 1.5rem;
+    margin-bottom: 1rem;
+}
+
+.future-notice p {
+    color: var(--text-secondary);
+    line-height: 1.8;
+    max-width: 800px;
+    margin: 0 auto;
+}
+
+/* Responsive */
+@media (max-width: 1024px) {
+    .table-header,
+    .table-row {
+        grid-template-columns: 60px 2fr 1fr 1fr;
+    }
+    
+    .col-reactions,
+    .col-deaths {
+        display: none;
+    }
+    
+    #gameLeaderboard .table-header,
+    #gameLeaderboard .table-row {
+        grid-template-columns: 60px 2fr 1fr 1fr;
+    }
+    
+    .rewards-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 768px) {
+    .leaderboard-page {
+        padding: 100px 1rem 2rem;
+    }
+    
+    .category-tabs {
+        flex-direction: column;
+    }
+    
+    .category-tab {
+        width: 100%;
+    }
+    
+    .table-header,
+    .table-row {
+        grid-template-columns: 60px 2fr 1fr;
+        padding: 1rem;
+        font-size: 0.9rem;
+    }
+    
+    .col-messages {
+        display: none;
+    }
+    
+    #gameLeaderboard .table-header,
+    #gameLeaderboard .table-row {
+        grid-template-columns: 60px 2fr 1fr;
+    }
+    
+    .hardcore-badges-grid {
+        grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+    }
+}

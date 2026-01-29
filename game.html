@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Game - 404x1</title>
+    <link rel="stylesheet" href="css/styles.css">
+    <link rel="stylesheet" href="css/game.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Rubik+Mono+One&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="scanlines"></div>
+    <div class="noise"></div>
+    
+    <nav class="navbar">
+        <div class="nav-container">
+            <div class="nav-logo">
+                <span class="glitch" data-text="404x1">404x1</span>
+            </div>
+            <ul class="nav-menu">
+                <li><a href="index.html">HOME</a></li>
+                <li><a href="chat.html">CHAT</a></li>
+                <li><a href="game.html" class="active">GAME</a></li>
+                <li><a href="leaderboard.html">LEADERBOARD</a></li>
+                <li><a href="#" class="nav-cta" id="authBtn">LOGIN</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <main class="game-page">
+        <div class="game-container">
+            <!-- Game Sidebar -->
+            <aside class="game-sidebar">
+                <div class="player-stats">
+                    <h3>⚡ PLAYER STATS</h3>
+                    <div class="stat-grid">
+                        <div class="stat-box">
+                            <span class="stat-label">Total RP</span>
+                            <span class="stat-value" id="totalRP">0</span>
+                        </div>
+                        <div class="stat-box">
+                            <span class="stat-label">Game RP</span>
+                            <span class="stat-value" id="gameRP">0</span>
+                        </div>
+                        <div class="stat-box">
+                            <span class="stat-label">Current Level</span>
+                            <span class="stat-value" id="currentLevel">1-1</span>
+                        </div>
+                        <div class="stat-box">
+                            <span class="stat-label">Deaths</span>
+                            <span class="stat-value" id="deaths">0</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="world-progress">
+                    <h3>🗺️ WORLD PROGRESS</h3>
+                    <div class="world-list">
+                        <div class="world-item active">
+                            <div class="world-number">WORLD 1</div>
+                            <div class="world-levels">
+                                <span class="level-dot completed"></span>
+                                <span class="level-dot"></span>
+                                <span class="level-dot"></span>
+                                <span class="level-dot"></span>
+                                <span class="level-dot"></span>
+                            </div>
+                        </div>
+                        <div class="world-item locked">
+                            <div class="world-number">WORLD 2</div>
+                            <div class="world-levels">
+                                <span class="level-dot"></span>
+                                <span class="level-dot"></span>
+                                <span class="level-dot"></span>
+                                <span class="level-dot"></span>
+                                <span class="level-dot"></span>
+                            </div>
+                        </div>
+                        <div class="world-item locked">
+                            <div class="world-number">WORLD 3</div>
+                            <div class="world-levels">
+                                <span class="level-dot"></span>
+                                <span class="level-dot"></span>
+                                <span class="level-dot"></span>
+                                <span class="level-dot"></span>
+                                <span class="level-dot"></span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="rp-guide">
+                    <h3>💎 RP REWARDS</h3>
+                    <div class="rp-item">
+                        <span>Standard Kill</span>
+                        <span class="rp-value">+0.1</span>
+                    </div>
+                    <div class="rp-item">
+                        <span>Elite Kill</span>
+                        <span class="rp-value">+0.5</span>
+                    </div>
+                    <div class="rp-item">
+                        <span>Mini-boss</span>
+                        <span class="rp-value">+1.0</span>
+                    </div>
+                    <div class="rp-item">
+                        <span>Boss</span>
+                        <span class="rp-value">+3.0</span>
+                    </div>
+                    <div class="rp-item highlight">
+                        <span>Level Complete</span>
+                        <span class="rp-value">+3.0</span>
+                    </div>
+                    <div class="rp-item highlight">
+                        <span>No Death Bonus</span>
+                        <span class="rp-value">+2.0</span>
+                    </div>
+                    <div class="rp-item highlight">
+                        <span>World Complete</span>
+                        <span class="rp-value">+10.0</span>
+                    </div>
+                </div>
+
+                <div class="hardcore-info">
+                    <h3>🔥 HARDCORE MODE</h3>
+                    <p>Complete 10 consecutive levels with 0 continues and ≤1 death total</p>
+                    <div class="hardcore-reward">+5 RP per block</div>
+                    <div class="hardcore-badges">
+                        <div class="badge locked">HC-10</div>
+                        <div class="badge locked">HC-20</div>
+                        <div class="badge locked">HC-30</div>
+                        <div class="badge locked">HC-40</div>
+                        <div class="badge locked">HC-50</div>
+                    </div>
+                </div>
+            </aside>
+
+            <!-- Main Game Area -->
+            <div class="game-main">
+                <div class="game-header">
+                    <div class="level-info">
+                        <h2>LEVEL 1-1: INITIALIZATION</h2>
+                        <div class="difficulty">Difficulty: ★☆☆☆☆</div>
+                    </div>
+                    <div class="game-controls">
+                        <button class="control-btn" id="pauseBtn">⏸️ PAUSE</button>
+                        <button class="control-btn" id="restartBtn">🔄 RESTART</button>
+                    </div>
+                </div>
+
+                <!-- Game Canvas -->
+                <div class="game-canvas-wrapper">
+                    <canvas id="gameCanvas"></canvas>
+                    <div class="game-overlay" id="gameOverlay">
+                        <div class="overlay-content">
+                            <h1 class="glitch" data-text="404 GAME">404 GAME</h1>
+                            <p class="game-description">
+                                50 brutal levels. Contra-style difficulty.<br>
+                                Skill beats grind. No hand-holding.
+                            </p>
+                            <div class="game-warning">
+                                ⚠️ This game is INTENTIONALLY DIFFICULT ⚠️
+                            </div>
+                            <button class="start-btn" id="startBtn">
+                                <span>START GAME</span>
+                                <div class="button-glow"></div>
+                            </button>
+                            <div class="controls-info">
+                                <h4>CONTROLS</h4>
+                                <p>
+                                    ← → MOVE | ↑ JUMP | SPACE SHOOT<br>
+                                    ESC PAUSE | R RESTART
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Game HUD -->
+                <div class="game-hud">
+                    <div class="hud-section">
+                        <span class="hud-label">HEALTH</span>
+                        <div class="health-bar">
+                            <div class="health-fill" id="healthFill" style="width: 100%"></div>
+                        </div>
+                    </div>
+                    <div class="hud-section">
+                        <span class="hud-label">SCORE</span>
+                        <span class="hud-value" id="score">0</span>
+                    </div>
+                    <div class="hud-section">
+                        <span class="hud-label">KILLS</span>
+                        <span class="hud-value" id="kills">0</span>
+                    </div>
+                    <div class="hud-section">
+                        <span class="hud-label">TIME</span>
+                        <span class="hud-value" id="timer">0:00</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script src="js/script.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/phaser/3.55.2/phaser.min.js"></script>
+    <script src="js/game.js"></script>
+</body>
+</html>

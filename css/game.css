@@ -1,0 +1,459 @@
+.game-page {
+    min-height: 100vh;
+    padding-top: 80px;
+}
+
+.game-container {
+    display: grid;
+    grid-template-columns: 320px 1fr;
+    max-width: 1800px;
+    margin: 0 auto;
+    height: calc(100vh - 80px);
+    gap: 0;
+}
+
+/* Game Sidebar */
+.game-sidebar {
+    background: var(--bg-secondary);
+    border-right: 1px solid var(--border-color);
+    overflow-y: auto;
+    padding: 1.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+.game-sidebar::-webkit-scrollbar {
+    width: 8px;
+}
+
+.game-sidebar::-webkit-scrollbar-track {
+    background: var(--bg-primary);
+}
+
+.game-sidebar::-webkit-scrollbar-thumb {
+    background: var(--accent-green);
+    border-radius: 4px;
+}
+
+.game-sidebar h3 {
+    color: var(--accent-green);
+    font-size: 1rem;
+    margin-bottom: 1rem;
+    font-family: 'Rubik Mono One', sans-serif;
+}
+
+/* Player Stats */
+.player-stats {
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 1.5rem;
+}
+
+.stat-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1rem;
+}
+
+.stat-box {
+    background: var(--bg-primary);
+    padding: 1rem;
+    border-radius: 4px;
+    text-align: center;
+    border: 1px solid var(--border-color);
+}
+
+.stat-label {
+    display: block;
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    margin-bottom: 0.5rem;
+}
+
+.stat-value {
+    display: block;
+    font-size: 1.5rem;
+    color: var(--accent-green);
+    font-weight: bold;
+    font-family: 'Rubik Mono One', sans-serif;
+}
+
+/* World Progress */
+.world-progress {
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 1.5rem;
+}
+
+.world-list {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.world-item {
+    background: var(--bg-primary);
+    padding: 1rem;
+    border-radius: 4px;
+    border: 1px solid var(--border-color);
+    transition: all 0.3s ease;
+}
+
+.world-item.active {
+    border-color: var(--accent-green);
+    box-shadow: 0 0 15px var(--glow-green);
+}
+
+.world-item.locked {
+    opacity: 0.4;
+}
+
+.world-number {
+    font-size: 0.9rem;
+    color: var(--text-primary);
+    margin-bottom: 0.8rem;
+    font-weight: bold;
+}
+
+.world-levels {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.level-dot {
+    width: 12px;
+    height: 12px;
+    border: 2px solid var(--border-color);
+    border-radius: 50%;
+    transition: all 0.3s ease;
+}
+
+.level-dot.completed {
+    background: var(--accent-green);
+    border-color: var(--accent-green);
+    box-shadow: 0 0 8px var(--glow-green);
+}
+
+/* RP Guide */
+.rp-guide,
+.hardcore-info {
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 1.5rem;
+}
+
+.rp-item {
+    display: flex;
+    justify-content: space-between;
+    padding: 0.6rem;
+    background: var(--bg-primary);
+    border-radius: 4px;
+    margin-bottom: 0.5rem;
+    font-size: 0.9rem;
+}
+
+.rp-item.highlight {
+    border: 1px solid var(--accent-cyan);
+    background: rgba(95, 255, 255, 0.05);
+}
+
+.rp-item span:first-child {
+    color: var(--text-secondary);
+}
+
+.rp-value {
+    color: var(--accent-green);
+    font-weight: bold;
+}
+
+/* Hardcore Info */
+.hardcore-info p {
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+    line-height: 1.6;
+    margin-bottom: 1rem;
+}
+
+.hardcore-reward {
+    background: var(--bg-primary);
+    padding: 0.8rem;
+    text-align: center;
+    color: var(--accent-cyan);
+    font-weight: bold;
+    border-radius: 4px;
+    margin-bottom: 1rem;
+    border: 1px solid var(--accent-cyan);
+}
+
+.hardcore-badges {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+
+.badge {
+    flex: 1;
+    min-width: 45px;
+    padding: 0.5rem;
+    background: var(--accent-green);
+    color: var(--bg-primary);
+    text-align: center;
+    font-size: 0.75rem;
+    font-weight: bold;
+    border-radius: 4px;
+    box-shadow: 0 0 10px var(--glow-green);
+}
+
+.badge.locked {
+    background: var(--bg-primary);
+    color: var(--text-muted);
+    border: 1px solid var(--border-color);
+    box-shadow: none;
+    opacity: 0.5;
+}
+
+/* Game Main Area */
+.game-main {
+    display: flex;
+    flex-direction: column;
+    background: var(--bg-primary);
+}
+
+.game-header {
+    padding: 1.5rem 2rem;
+    background: var(--bg-secondary);
+    border-bottom: 2px solid var(--accent-green);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.level-info h2 {
+    color: var(--accent-green);
+    font-family: 'Rubik Mono One', sans-serif;
+    font-size: 1.3rem;
+    margin-bottom: 0.5rem;
+}
+
+.difficulty {
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+}
+
+.game-controls {
+    display: flex;
+    gap: 1rem;
+}
+
+.control-btn {
+    padding: 0.8rem 1.5rem;
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border-color);
+    color: var(--text-primary);
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.9rem;
+    cursor: pointer;
+    border-radius: 4px;
+    transition: all 0.3s ease;
+}
+
+.control-btn:hover {
+    border-color: var(--accent-green);
+    background: rgba(125, 255, 125, 0.1);
+    transform: translateY(-2px);
+}
+
+/* Game Canvas */
+.game-canvas-wrapper {
+    flex: 1;
+    position: relative;
+    background: #000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+}
+
+#gameCanvas {
+    width: 100%;
+    height: 100%;
+    display: block;
+}
+
+.game-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(10, 14, 20, 0.95);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10;
+}
+
+.game-overlay.hidden {
+    display: none;
+}
+
+.overlay-content {
+    text-align: center;
+    max-width: 600px;
+    padding: 2rem;
+}
+
+.overlay-content h1 {
+    font-size: 4rem;
+    color: var(--accent-green);
+    margin-bottom: 1rem;
+}
+
+.game-description {
+    color: var(--text-secondary);
+    font-size: 1.2rem;
+    line-height: 1.8;
+    margin-bottom: 2rem;
+}
+
+.game-warning {
+    padding: 1rem;
+    background: rgba(255, 85, 85, 0.1);
+    border: 2px solid var(--error-red);
+    color: var(--error-red);
+    font-weight: bold;
+    margin-bottom: 2rem;
+    border-radius: 4px;
+    animation: warningPulse 2s infinite;
+}
+
+@keyframes warningPulse {
+    0%, 100% {
+        box-shadow: 0 0 10px rgba(255, 85, 85, 0.3);
+    }
+    50% {
+        box-shadow: 0 0 30px rgba(255, 85, 85, 0.6);
+    }
+}
+
+.start-btn {
+    position: relative;
+    padding: 1.5rem 3rem;
+    background: var(--accent-green);
+    border: none;
+    color: var(--bg-primary);
+    font-family: 'Rubik Mono One', sans-serif;
+    font-size: 1.2rem;
+    letter-spacing: 2px;
+    cursor: pointer;
+    border-radius: 4px;
+    transition: all 0.3s ease;
+    margin-bottom: 2rem;
+    overflow: hidden;
+}
+
+.start-btn:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 5px 40px var(--glow-green);
+}
+
+.controls-info {
+    background: var(--bg-secondary);
+    padding: 1.5rem;
+    border-radius: 8px;
+    border: 1px solid var(--border-color);
+}
+
+.controls-info h4 {
+    color: var(--accent-cyan);
+    margin-bottom: 1rem;
+    font-family: 'Rubik Mono One', sans-serif;
+}
+
+.controls-info p {
+    color: var(--text-secondary);
+    line-height: 1.8;
+}
+
+/* Game HUD */
+.game-hud {
+    padding: 1rem 2rem;
+    background: var(--bg-secondary);
+    border-top: 1px solid var(--border-color);
+    display: grid;
+    grid-template-columns: 2fr repeat(3, 1fr);
+    gap: 2rem;
+    align-items: center;
+}
+
+.hud-section {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.hud-label {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    letter-spacing: 1px;
+}
+
+.hud-value {
+    font-size: 1.5rem;
+    color: var(--accent-green);
+    font-family: 'Rubik Mono One', sans-serif;
+}
+
+/* Health Bar */
+.health-bar {
+    width: 100%;
+    height: 30px;
+    background: var(--bg-primary);
+    border: 2px solid var(--border-color);
+    border-radius: 4px;
+    overflow: hidden;
+    position: relative;
+}
+
+.health-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--error-red), var(--accent-green));
+    transition: width 0.3s ease;
+    box-shadow: 0 0 20px var(--glow-green);
+}
+
+/* Responsive */
+@media (max-width: 1024px) {
+    .game-container {
+        grid-template-columns: 1fr;
+    }
+    
+    .game-sidebar {
+        display: none;
+    }
+    
+    .game-hud {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 1rem;
+    }
+}
+
+@media (max-width: 768px) {
+    .game-header {
+        flex-direction: column;
+        gap: 1rem;
+        align-items: flex-start;
+    }
+    
+    .overlay-content h1 {
+        font-size: 2.5rem;
+    }
+    
+    .game-description {
+        font-size: 1rem;
+    }
+}

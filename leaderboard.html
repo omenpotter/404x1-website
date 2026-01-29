@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Leaderboard - 404x1</title>
+    <link rel="stylesheet" href="css/styles.css">
+    <link rel="stylesheet" href="css/leaderboard.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Rubik+Mono+One&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="scanlines"></div>
+    <div class="noise"></div>
+    
+    <nav class="navbar">
+        <div class="nav-container">
+            <div class="nav-logo">
+                <span class="glitch" data-text="404x1">404x1</span>
+            </div>
+            <ul class="nav-menu">
+                <li><a href="index.html">HOME</a></li>
+                <li><a href="chat.html">CHAT</a></li>
+                <li><a href="game.html">GAME</a></li>
+                <li><a href="leaderboard.html" class="active">LEADERBOARD</a></li>
+                <li><a href="#" class="nav-cta" id="authBtn">LOGIN</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <main class="leaderboard-page">
+        <div class="leaderboard-container">
+            <div class="leaderboard-header">
+                <h1 class="glitch" data-text="LEADERBOARD">LEADERBOARD</h1>
+                <p class="header-subtitle">Compete in chat activity and game mastery</p>
+            </div>
+
+            <!-- Category Tabs -->
+            <div class="category-tabs">
+                <button class="category-tab active" data-category="chat">
+                    💬 CHAT
+                </button>
+                <button class="category-tab" data-category="game">
+                    🎮 GAME
+                </button>
+                <button class="category-tab" data-category="rewards">
+                    🏆 REWARDS
+                </button>
+            </div>
+
+            <!-- Chat Leaderboard -->
+            <div class="leaderboard-content active" id="chatLeaderboard">
+                <div class="leaderboard-info">
+                    <h2>Chat Leaderboard</h2>
+                    <p>Ranked by total RP earned through chat participation. Penalties reduce your rank.</p>
+                </div>
+
+                <div class="leaderboard-table">
+                    <div class="table-header">
+                        <div class="col-rank">RANK</div>
+                        <div class="col-player">PLAYER</div>
+                        <div class="col-messages">MESSAGES</div>
+                        <div class="col-reactions">REACTIONS</div>
+                        <div class="col-rp">RP</div>
+                    </div>
+
+                    <div class="table-body">
+                        <div class="table-row top-rank">
+                            <div class="col-rank">
+                                <span class="rank-medal">🥇</span>
+                                <span class="rank-number">1</span>
+                            </div>
+                            <div class="col-player">
+                                <span class="player-name trusted">ChatMaster</span>
+                                <span class="player-role">Trusted</span>
+                            </div>
+                            <div class="col-messages">2,847</div>
+                            <div class="col-reactions">5,193</div>
+                            <div class="col-rp">
+                                <span class="rp-value">12,450</span>
+                            </div>
+                        </div>
+
+                        <div class="table-row top-rank">
+                            <div class="col-rank">
+                                <span class="rank-medal">🥈</span>
+                                <span class="rank-number">2</span>
+                            </div>
+                            <div class="col-player">
+                                <span class="player-name trusted">SocialKing</span>
+                                <span class="player-role">Trusted</span>
+                            </div>
+                            <div class="col-messages">2,156</div>
+                            <div class="col-reactions">4,892</div>
+                            <div class="col-rp">
+                                <span class="rp-value">10,823</span>
+                            </div>
+                        </div>
+
+                        <div class="table-row top-rank">
+                            <div class="col-rank">
+                                <span class="rank-medal">🥉</span>
+                                <span class="rank-number">3</span>
+                            </div>
+                            <div class="col-player">
+                                <span class="player-name trusted">MemeQueen</span>
+                                <span class="player-role">Trusted</span>
+                            </div>
+                            <div class="col-messages">1,934</div>
+                            <div class="col-reactions">4,201</div>
+                            <div class="col-rp">
+                                <span class="rp-value">9,567</span>
+                            </div>
+                        </div>
+
+                        <div class="table-row">
+                            <div class="col-rank">
+                                <span class="rank-number">4</span>
+                            </div>
+                            <div class="col-player">
+                                <span class="player-name trusted">CryptoFan</span>
+                                <span class="player-role">Trusted</span>
+                            </div>
+                            <div class="col-messages">1,445</div>
+                            <div class="col-reactions">3,112</div>
+                            <div class="col-rp">
+                                <span class="rp-value">7,234</span>
+                            </div>
+                        </div>
+
+                        <div class="table-row">
+                            <div class="col-rank">
+                                <span class="rank-number">5</span>
+                            </div>
+                            <div class="col-player">
+                                <span class="player-name">RegularUser</span>
+                                <span class="player-role">User</span>
+                            </div>
+                            <div class="col-messages">823</div>
+                            <div class="col-reactions">1,456</div>
+                            <div class="col-rp">
+                                <span class="rp-value">4,102</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Game Leaderboard -->
+            <div class="leaderboard-content" id="gameLeaderboard">
+                <div class="leaderboard-info">
+                    <h2>Game Leaderboard</h2>
+                    <p>Ranked by total score, full clears, time, and hardcore achievements.</p>
+                </div>
+
+                <div class="leaderboard-table">
+                    <div class="table-header">
+                        <div class="col-rank">RANK</div>
+                        <div class="col-player">PLAYER</div>
+                        <div class="col-level">LEVEL</div>
+                        <div class="col-score">SCORE</div>
+                        <div class="col-deaths">DEATHS</div>
+                        <div class="col-badges">HC</div>
+                    </div>
+
+                    <div class="table-body">
+                        <div class="table-row top-rank">
+                            <div class="col-rank">
+                                <span class="rank-medal">🥇</span>
+                                <span class="rank-number">1</span>
+                            </div>
+                            <div class="col-player">
+                                <span class="player-name">ProGamer404</span>
+                                <span class="player-role">50/50</span>
+                            </div>
+                            <div class="col-level">10-5</div>
+                            <div class="col-score">2,847,350</div>
+                            <div class="col-deaths">12</div>
+                            <div class="col-badges">
+                                <span class="badge-icon">🔥</span> 5
+                            </div>
+                        </div>
+
+                        <div class="table-row top-rank">
+                            <div class="col-rank">
+                                <span class="rank-medal">🥈</span>
+                                <span class="rank-number">2</span>
+                            </div>
+                            <div class="col-player">
+                                <span class="player-name">ElitePlayer</span>
+                                <span class="player-role">50/50</span>
+                            </div>
+                            <div class="col-level">10-5</div>
+                            <div class="col-score">2,634,120</div>
+                            <div class="col-deaths">23</div>
+                            <div class="col-badges">
+                                <span class="badge-icon">🔥</span> 4
+                            </div>
+                        </div>
+
+                        <div class="table-row top-rank">
+                            <div class="col-rank">
+                                <span class="rank-medal">🥉</span>
+                                <span class="rank-number">3</span>
+                            </div>
+                            <div class="col-player">
+                                <span class="player-name">SkillMaster</span>
+                                <span class="player-role">47/50</span>
+                            </div>
+                            <div class="col-level">10-2</div>
+                            <div class="col-score">2,123,890</div>
+                            <div class="col-deaths">45</div>
+                            <div class="col-badges">
+                                <span class="badge-icon">🔥</span> 3
+                            </div>
+                        </div>
+
+                        <div class="table-row">
+                            <div class="col-rank">
+                                <span class="rank-number">4</span>
+                            </div>
+                            <div class="col-player">
+                                <span class="player-name">GameFanatic</span>
+                                <span class="player-role">35/50</span>
+                            </div>
+                            <div class="col-level">7-5</div>
+                            <div class="col-score">1,456,700</div>
+                            <div class="col-deaths">89</div>
+                            <div class="col-badges">
+                                <span class="badge-icon">🔥</span> 2
+                            </div>
+                        </div>
+
+                        <div class="table-row">
+                            <div class="col-rank">
+                                <span class="rank-number">5</span>
+                            </div>
+                            <div class="col-player">
+                                <span class="player-name">TryHard</span>
+                                <span class="player-role">25/50</span>
+                            </div>
+                            <div class="col-level">5-5</div>
+                            <div class="col-score">892,450</div>
+                            <div class="col-deaths">134</div>
+                            <div class="col-badges">
+                                <span class="badge-icon">🔥</span> 1
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Rewards Section -->
+            <div class="leaderboard-content" id="rewardsSection">
+                <div class="leaderboard-info">
+                    <h2>Achievements & Rewards</h2>
+                    <p>Track your milestones and unlock badges</p>
+                </div>
+
+                <div class="rewards-grid">
+                    <div class="reward-category">
+                        <h3>💎 RP Milestones</h3>
+                        <div class="milestone-list">
+                            <div class="milestone-item">
+                                <span class="milestone-badge locked">100</span>
+                                <div class="milestone-info">
+                                    <span class="milestone-name">Trusted</span>
+                                    <span class="milestone-desc">Unlock Trusted role</span>
+                                </div>
+                            </div>
+                            <div class="milestone-item">
+                                <span class="milestone-badge locked">500</span>
+                                <div class="milestone-info">
+                                    <span class="milestone-name">Dedicated</span>
+                                    <span class="milestone-desc">500 RP milestone</span>
+                                </div>
+                            </div>
+                            <div class="milestone-item">
+                                <span class="milestone-badge locked">1000</span>
+                                <div class="milestone-info">
+                                    <span class="milestone-name">Champion</span>
+                                    <span class="milestone-desc">1000 RP milestone</span>
+                                </div>
+                            </div>
+                            <div class="milestone-item">
+                                <span class="milestone-badge locked">5000</span>
+                                <div class="milestone-info">
+                                    <span class="milestone-name">Legend</span>
+                                    <span class="milestone-desc">5000 RP milestone</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="reward-category">
+                        <h3>🔥 Hardcore Badges</h3>
+                        <div class="hardcore-badges-grid">
+                            <div class="hardcore-badge locked">
+                                <div class="badge-name">HC-10</div>
+                                <div class="badge-progress">0/10 Levels</div>
+                            </div>
+                            <div class="hardcore-badge locked">
+                                <div class="badge-name">HC-20</div>
+                                <div class="badge-progress">0/20 Levels</div>
+                            </div>
+                            <div class="hardcore-badge locked">
+                                <div class="badge-name">HC-30</div>
+                                <div class="badge-progress">0/30 Levels</div>
+                            </div>
+                            <div class="hardcore-badge locked">
+                                <div class="badge-name">HC-40</div>
+                                <div class="badge-progress">0/40 Levels</div>
+                            </div>
+                            <div class="hardcore-badge locked">
+                                <div class="badge-name">HC-50</div>
+                                <div class="badge-progress">0/50 Levels</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="reward-category">
+                        <h3>🎮 Game Achievements</h3>
+                        <div class="achievement-list">
+                            <div class="achievement-item locked">
+                                <span class="achievement-icon">⚔️</span>
+                                <div class="achievement-info">
+                                    <span class="achievement-name">First Blood</span>
+                                    <span class="achievement-desc">Kill your first enemy</span>
+                                </div>
+                            </div>
+                            <div class="achievement-item locked">
+                                <span class="achievement-icon">🌍</span>
+                                <div class="achievement-info">
+                                    <span class="achievement-name">World Conqueror</span>
+                                    <span class="achievement-desc">Complete a full world</span>
+                                </div>
+                            </div>
+                            <div class="achievement-item locked">
+                                <span class="achievement-icon">👑</span>
+                                <div class="achievement-info">
+                                    <span class="achievement-name">Game Master</span>
+                                    <span class="achievement-desc">Complete all 50 levels</span>
+                                </div>
+                            </div>
+                            <div class="achievement-item locked">
+                                <span class="achievement-icon">💀</span>
+                                <div class="achievement-info">
+                                    <span class="achievement-name">No Death</span>
+                                    <span class="achievement-desc">Complete level without dying</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="future-rewards">
+                    <div class="future-notice">
+                        <h3>🔮 Future Rewards</h3>
+                        <p>
+                            404x1 may integrate blockchain-based rewards or identity linking in the future.
+                            All existing accounts, RP, and achievements will remain valid and may qualify
+                            for on-chain benefits.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script src="js/script.js"></script>
+    <script src="js/leaderboard.js"></script>
+</body>
+</html>
