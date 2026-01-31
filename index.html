@@ -138,43 +138,23 @@
                 <!-- Live Data Feed -->
                 <div class="live-data-feed">
                     <div class="live-transactions">
-                        <h3>🔴 Recent Transactions</h3>
+                        <h3>🔴 Recent Transactions (Last 2 Days)</h3>
+                        <div class="transaction-header" style="display: grid; grid-template-columns: 100px 60px 120px 80px 80px 60px; gap: 1rem; padding: 0.8rem; background: var(--bg-tertiary); border-radius: 4px; margin-bottom: 0.5rem; font-weight: bold; font-size: 0.85rem; color: var(--accent-green);">
+                            <div>Timestamp</div>
+                            <div>Type</div>
+                            <div>Amounts</div>
+                            <div>Price</div>
+                            <div>Maker</div>
+                            <div>Txn</div>
+                        </div>
                         <div class="transaction-list" id="transactionList">
-                            <div class="transaction-item">
-                                <span class="tx-type buy">BUY</span>
-                                <span class="tx-amount">123.45 404</span>
-                                <span class="tx-time">2m ago</span>
-                            </div>
-                            <div class="transaction-item">
-                                <span class="tx-type sell">SELL</span>
-                                <span class="tx-amount">67.89 404</span>
-                                <span class="tx-time">5m ago</span>
-                            </div>
-                            <div class="transaction-item">
-                                <span class="tx-type buy">BUY</span>
-                                <span class="tx-amount">234.56 404</span>
-                                <span class="tx-time">8m ago</span>
-                            </div>
+                            <div class="loading-more">Loading transactions...</div>
                         </div>
                     </div>
                     <div class="live-holders">
-                        <h3>👥 Top Holders</h3>
+                        <h3>👥 All Holders (Scrollable - 250+)</h3>
                         <div class="holder-list" id="holderList">
-                            <div class="holder-item">
-                                <span class="holder-rank">#1</span>
-                                <span class="holder-address">5xK...mN8p</span>
-                                <span class="holder-amount">12.5%</span>
-                            </div>
-                            <div class="holder-item">
-                                <span class="holder-rank">#2</span>
-                                <span class="holder-address">7aB...cD3q</span>
-                                <span class="holder-amount">8.3%</span>
-                            </div>
-                            <div class="holder-item">
-                                <span class="holder-rank">#3</span>
-                                <span class="holder-address">9mP...xY7r</span>
-                                <span class="holder-amount">6.1%</span>
-                            </div>
+                            <div class="loading-more">Loading holders...</div>
                         </div>
                     </div>
                 </div>
