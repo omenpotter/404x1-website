@@ -285,49 +285,99 @@ const XDEX_API = 'https://api.xdex.xyz/api/xendex/swap/prepare';
 let currentPrice = null;
 let tokenDecimals = 9; // Default, will be updated
 
-// Fetch Token Price from xDEX with better error handling
+// Fetch Token Price — tries Vercel proxy first, then direct xDEX, then on-chain derivation
 async function fetchTokenPrice() {
+    const priceEl = document.getElementById('priceXNT');
+
+    // --- Attempt 1: Vercel serverless proxy ---
     try {
-        console.log('Fetching price via proxy API...');
-        
-        // Use Vercel serverless function proxy to avoid CORS
-        const response = await fetch('/api/price', {
-            method: 'GET',
-            headers: {
-                'Accept': 'application/json'
+        const res = await fetch('/api/price');
+        if (res.ok) {
+            const data = await res.json();
+            if (data.success && data.price && data.price > 0) {
+                currentPrice = data.price;
+                priceEl.textContent = `${currentPrice.toFixed(8)} XNT`;
+                return currentPrice;
             }
-        });
-
-        if (!response.ok) {
-            throw new Error(`API returned ${response.status}: ${response.statusText}`);
         }
-
-        const data = await response.json();
-        console.log('Price API Response:', data);
-        
-        if (data.success && data.price) {
-            const price = data.price;
-            currentPrice = price;
-            document.getElementById('priceXNT').textContent = `${price.toFixed(8)} XNT`;
-            return price;
-        } else {
-            console.error('Price API error:', data.error || 'Unknown error');
-            throw new Error(data.error || 'Invalid price data');
-        }
-    } catch (error) {
-        console.error('Error fetching price:', error);
-        
-        // Show appropriate message
-        if (currentPrice) {
-            document.getElementById('priceXNT').textContent = `${currentPrice.toFixed(8)} XNT`;
-        } else if (error.message.includes('404')) {
-            document.getElementById('priceXNT').textContent = 'API not deployed';
-        } else {
-            document.getElementById('priceXNT').textContent = 'Loading...';
-        }
-        
-        return currentPrice; // Return cached price
+    } catch (e) {
+        console.log('Proxy unavailable, trying direct xDEX...');
     }
+
+    // --- Attempt 2: Direct xDEX API ---
+    try {
+        const res = await fetch('https://api.xdex.xyz/api/xendex/swap/prepare', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                network: 'X1 Mainnet',
+                wallet: '11111111111111111111111111111111',
+                token_in: WXNT_ADDRESS,
+                token_out: TOKEN_CA,
+                token_in_amount: 1,
+                is_exact_amount_in: true
+            })
+        });
+        const data = await res.json();
+        console.log('Direct xDEX raw:', data);
+        let price = data.estimatedOutputAmount || data.output_amount
+            || (data.data && (data.data.estimatedOutputAmount || data.data.output_amount))
+            || data.result || null;
+        if (price) {
+            price = parseFloat(price);
+            if (price > 1) price = 1 / price; // 1 XNT → N tokens means price = 1/N
+            if (price > 0) {
+                currentPrice = price;
+                priceEl.textContent = `${currentPrice.toFixed(8)} XNT`;
+                return currentPrice;
+            }
+        }
+    } catch (e) {
+        console.log('Direct xDEX failed (CORS?):', e.message);
+    }
+
+    // --- Attempt 3: Derive price from the most recent on-chain swap ---
+    try {
+        const sigRes = await fetch(X1_RPC, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'getSignaturesForAddress', params: [TOKEN_CA, { limit: 1 }] })
+        });
+        const sigData = await sigRes.json();
+        if (sigData.result && sigData.result.length > 0) {
+            const txRes = await fetch(X1_RPC, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ jsonrpc: '2.0', id: 2, method: 'getTransaction', params: [sigData.result[0].signature, { encoding: 'jsonParsed', maxSupportedTransactionVersion: 0 }] })
+            });
+            const txData = await txRes.json();
+            if (txData.result && txData.result.meta) {
+                const meta = txData.result.meta;
+                const pre = meta.preTokenBalances && meta.preTokenBalances.find(b => b.mint === TOKEN_CA);
+                const post = meta.postTokenBalances && meta.postTokenBalances.find(b => b.mint === TOKEN_CA);
+                if (pre && post) {
+                    const tokenChange = Math.abs((post.uiTokenAmount.uiAmount || 0) - (pre.uiTokenAmount.uiAmount || 0));
+                    const xntChange = Math.abs(meta.postBalances[0] - meta.preBalances[0]) / 1e9;
+                    if (tokenChange > 0 && xntChange > 0) {
+                        currentPrice = xntChange / tokenChange;
+                        priceEl.textContent = `${currentPrice.toFixed(8)} XNT`;
+                        console.log('Price from on-chain tx:', currentPrice);
+                        return currentPrice;
+                    }
+                }
+            }
+        }
+    } catch (e) {
+        console.log('On-chain price derivation failed:', e.message);
+    }
+
+    // All failed — show cached or fallback
+    if (currentPrice) {
+        priceEl.textContent = `${currentPrice.toFixed(8)} XNT`;
+    } else {
+        priceEl.textContent = 'Check xDEX';
+    }
+    return currentPrice;
 }
 
 // Fetch Token Supply
@@ -371,7 +421,7 @@ async function fetchAllHolders() {
                 jsonrpc: '2.0',
                 id: 1,
                 method: 'getTokenLargestAccounts',
-                params: [TOKEN_CA, { commitment: 'confirmed' }]
+                params: [TOKEN_CA, { commitment: 'confirmed', limit: 500 }]
             })
         });
 
@@ -637,25 +687,12 @@ async function initializeTokenData() {
 if (document.getElementById('priceXNT')) {
     // Initial load
     initializeTokenData();
-    
-    // Refresh price and market cap every 15 seconds
+
+    // Refresh price + market cap every 30 seconds (single interval)
     setInterval(async () => {
         await fetchTokenPrice();
         await calculateMarketCap();
-    }, 15000);
-    
-    // Refresh price and market cap every 15 seconds
-    setInterval(async () => {
-        const price = await fetchTokenPrice();
-        const tokenInfo = await fetchTokenSupply();
-        if (price && tokenInfo) {
-            await calculateMarketCap(price, tokenInfo.supply);
-        }
-    }, 15000);
-    
-    // DON'T auto-refresh holders (too slow, takes 1-2 minutes)
-    // DON'T auto-refresh transactions (causes vanishing)
-    // User can refresh page to get new data
+    }, 30000);
 }
 
 // TradingView Chart Integration
