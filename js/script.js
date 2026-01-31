@@ -363,7 +363,7 @@ async function fetchAllHolders() {
     try {
         console.log('Fetching all holders...');
         
-        // First get the largest accounts
+        // Get the largest accounts
         const response = await fetch(X1_RPC, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -371,121 +371,75 @@ async function fetchAllHolders() {
                 jsonrpc: '2.0',
                 id: 1,
                 method: 'getTokenLargestAccounts',
-                params: [TOKEN_CA]
+                params: [TOKEN_CA, { commitment: 'confirmed' }]
             })
         });
 
         const data = await response.json();
         console.log('Holders Response:', data);
         
-        if (data.result && data.result.value) {
+        if (data.result && data.result.value && data.result.value.length > 0) {
             const accounts = data.result.value;
             
-            // Calculate total from these accounts
-            const totalFromAccounts = accounts.reduce((sum, acc) => 
+            // Calculate total supply
+            const totalSupply = accounts.reduce((sum, acc) => 
                 sum + parseFloat(acc.amount), 0
             );
             
             // Display actual holder count
             document.getElementById('holders').textContent = `${accounts.length} holders`;
             
-            // Display top holders list
+            // Display ALL holders (skip first one - usually pool)
             const holderList = document.getElementById('holderList');
             if (holderList) {
-                // Don't clear - show loading message
-                holderList.innerHTML = '<div class="loading-more">Loading owner addresses (this may take a minute)...</div>';
-                
-                // Get owner addresses (skip first account - usually pool/program)
-                const holdersWithOwners = [];
-                
-                // Start from index 1 to skip the first account, load up to 250
-                const maxHolders = Math.min(accounts.length, 250);
-                
-                for (let i = 1; i < maxHolders; i++) {
-                    const account = accounts[i];
-                    
-                    // Show progress every 20 accounts
-                    if (i % 20 === 0) {
-                        holderList.innerHTML = `<div class="loading-more">Loading ${i}/${maxHolders} owner addresses...</div>`;
-                    }
-                    
-                    const ownerAddress = await getTokenAccountOwner(account.address);
-                    
-                    if (ownerAddress) {
-                        const balance = parseFloat(account.amount) / Math.pow(10, tokenDecimals);
-                        const percentage = (parseFloat(account.amount) / totalFromAccounts * 100).toFixed(2);
-                        
-                        holdersWithOwners.push({
-                            owner: ownerAddress,
-                            balance,
-                            percentage,
-                            rank: i // Keep original rank
-                        });
-                    }
-                }
-                
-                console.log(`Loaded ${holdersWithOwners.length} holders with owner addresses`);
-                
-                // NOW display all holders at once (won't vanish)
                 holderList.innerHTML = '';
-                holdersWithOwners.forEach((holder) => {
+                
+                // Show all accounts starting from index 1 (skip pool)
+                for (let i = 1; i < accounts.length; i++) {
+                    const account = accounts[i];
+                    const amount = parseFloat(account.amount) / Math.pow(10, tokenDecimals);
+                    const percentage = (parseFloat(account.amount) / totalSupply * 100).toFixed(2);
+                    
+                    // Format amount (33.17K style)
+                    let amountFormatted;
+                    if (amount >= 1000000) {
+                        amountFormatted = (amount / 1000000).toFixed(2) + 'M';
+                    } else if (amount >= 1000) {
+                        amountFormatted = (amount / 1000).toFixed(2) + 'K';
+                    } else {
+                        amountFormatted = amount.toFixed(2);
+                    }
+                    
                     const item = document.createElement('div');
                     item.className = 'holder-item';
                     item.innerHTML = `
-                        <span class="holder-rank">#${holder.rank}</span>
-                        <span class="holder-address" title="${holder.owner}">${holder.owner.slice(0, 6)}...${holder.owner.slice(-4)}</span>
-                        <span class="holder-amount">${holder.percentage}%</span>
+                        <span class="holder-rank">#${i}</span>
+                        <span class="holder-address" title="${account.address}">${account.address.slice(0, 6)}...${account.address.slice(-4)}</span>
+                        <span class="holder-balance">${amountFormatted} 404</span>
+                        <span class="holder-amount">${percentage}%</span>
                     `;
                     item.style.cursor = 'pointer';
-                    item.onclick = () => window.open(`https://explorer.mainnet.x1.xyz/address/${holder.owner}`, '_blank');
+                    item.onclick = () => window.open(`https://explorer.mainnet.x1.xyz/address/${account.address}`, '_blank');
                     holderList.appendChild(item);
-                });
-                
-                if (holdersWithOwners.length === 0) {
-                    holderList.innerHTML = '<div class="loading-more">No holder data available</div>';
                 }
+                
+                console.log(`Displayed ${accounts.length - 1} holders`);
             }
             
             return accounts.length;
+        } else {
+            document.getElementById('holders').textContent = 'No holders';
+            document.getElementById('holderList').innerHTML = '<div class="loading-more">No holder data</div>';
         }
     } catch (error) {
         console.error('Error fetching holders:', error);
-        document.getElementById('holders').textContent = 'Error loading';
+        document.getElementById('holders').textContent = 'Error';
         document.getElementById('holderList').innerHTML = '<div class="loading-more">Error loading holders</div>';
     }
     return 0;
 }
 
-// Get owner address of a token account
-async function getTokenAccountOwner(tokenAccountAddress) {
-    try {
-        const response = await fetch(X1_RPC, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                jsonrpc: '2.0',
-                id: 1,
-                method: 'getAccountInfo',
-                params: [
-                    tokenAccountAddress,
-                    { encoding: 'jsonParsed' }
-                ]
-            })
-        });
-
-        const data = await response.json();
-        
-        if (data.result && data.result.value && data.result.value.data) {
-            const parsed = data.result.value.data.parsed;
-            if (parsed && parsed.info && parsed.info.owner) {
-                return parsed.info.owner;
-            }
-        }
-    } catch (error) {
-        console.error('Error getting token account owner:', error);
-    }
-    return null;
-}
+// Remove the slow getTokenAccountOwner function - not needed anymore
 
 // Fetch and Parse Detailed Transactions
 async function fetchDetailedTransactions() {
