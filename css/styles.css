@@ -1140,3 +1140,190 @@ body {
         font-size: 0.75rem;
     }
 }
+
+/* Detailed Transaction Display */
+.transaction-detail-item {
+    display: grid;
+    grid-template-columns: 100px 60px 120px 80px 80px 60px;
+    gap: 1rem;
+    padding: 1rem;
+    background: var(--bg-tertiary);
+    border-radius: 4px;
+    margin-bottom: 0.8rem;
+    font-size: 0.9rem;
+    align-items: center;
+}
+
+.tx-col {
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+}
+
+.tx-timestamp {
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+}
+
+.tx-time {
+    color: var(--text-muted);
+    font-size: 0.8rem;
+}
+
+.tx-type-badge {
+    padding: 0.4rem 0.8rem;
+    border-radius: 4px;
+    font-weight: bold;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    text-align: center;
+}
+
+.tx-type-badge.buy {
+    background: rgba(125, 255, 125, 0.2);
+    color: var(--accent-green);
+}
+
+.tx-type-badge.sell {
+    background: rgba(255, 85, 85, 0.2);
+    color: var(--error-red);
+}
+
+.tx-type-badge.swap {
+    background: rgba(0, 191, 255, 0.2);
+    color: var(--accent-cyan);
+}
+
+.tx-amounts {
+    color: var(--text-primary);
+}
+
+.tx-token-amount {
+    color: var(--text-muted);
+    font-size: 0.85rem;
+}
+
+.tx-price {
+    color: var(--accent-cyan);
+    font-weight: bold;
+}
+
+.tx-maker {
+    color: var(--text-secondary);
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.85rem;
+}
+
+.tx-link a {
+    color: var(--accent-green);
+    text-decoration: none;
+    font-size: 0.85rem;
+}
+
+.tx-link a:hover {
+    text-decoration: underline;
+}
+
+/* Scrollable Holders List */
+.holder-list {
+    max-height: 600px;
+    overflow-y: auto;
+    padding-right: 0.5rem;
+}
+
+.holder-list::-webkit-scrollbar {
+    width: 8px;
+}
+
+.holder-list::-webkit-scrollbar-track {
+    background: var(--bg-tertiary);
+    border-radius: 4px;
+}
+
+.holder-list::-webkit-scrollbar-thumb {
+    background: var(--accent-green);
+    border-radius: 4px;
+}
+
+.holder-list::-webkit-scrollbar-thumb:hover {
+    background: var(--glow-green);
+}
+
+.holder-item {
+    display: grid;
+    grid-template-columns: 50px 120px 1fr 80px;
+    gap: 1rem;
+    padding: 0.8rem;
+    background: var(--bg-tertiary);
+    border-radius: 4px;
+    margin-bottom: 0.5rem;
+    font-size: 0.9rem;
+    align-items: center;
+}
+
+.holder-balance {
+    color: var(--text-primary);
+    font-family: 'Share Tech Mono', monospace;
+    text-align: right;
+}
+
+/* Transaction List Scrollable */
+.transaction-list {
+    max-height: 600px;
+    overflow-y: auto;
+    padding-right: 0.5rem;
+}
+
+.transaction-list::-webkit-scrollbar {
+    width: 8px;
+}
+
+.transaction-list::-webkit-scrollbar-track {
+    background: var(--bg-tertiary);
+    border-radius: 4px;
+}
+
+.transaction-list::-webkit-scrollbar-thumb {
+    background: var(--accent-cyan);
+    border-radius: 4px;
+}
+
+.transaction-list::-webkit-scrollbar-thumb:hover {
+    background: var(--glow-cyan);
+}
+
+.loading-more {
+    text-align: center;
+    padding: 1rem;
+    color: var(--text-muted);
+    font-style: italic;
+}
+
+.error-message {
+    text-align: center;
+    padding: 2rem;
+    color: var(--error-red);
+    background: rgba(255, 85, 85, 0.1);
+    border-radius: 4px;
+}
+
+/* Mobile Responsive for Transactions */
+@media (max-width: 1024px) {
+    .transaction-detail-item {
+        grid-template-columns: 1fr;
+        gap: 0.5rem;
+    }
+    
+    .tx-col {
+        flex-direction: row;
+        justify-content: space-between;
+    }
+}
+
+@media (max-width: 768px) {
+    .holder-item {
+        grid-template-columns: 40px 100px 1fr 70px;
+        gap: 0.5rem;
+        font-size: 0.85rem;
+    }
+}
