@@ -35,8 +35,8 @@ function updateUserProfile() {
     document.getElementById('reactionCount').textContent = userData.reactionCount;
     document.getElementById('userRole').textContent = userData.role;
     
-    // Update trusted status
-    if (userData.rp >= 100) {
+    // Update trusted status - 1000 RP required
+    if (userData.rp >= 1000) {
         userData.isTrusted = true;
         userData.role = 'Trusted';
     }
@@ -99,8 +99,8 @@ function sendMessage() {
     saveUserData();
     
     // Check for trusted unlock
-    if (userData.rp >= 100 && !userData.isTrusted) {
-        showSystemMessage('🎉 Congratulations! You reached 100 RP and unlocked Trusted role!');
+    if (userData.rp >= 1000 && !userData.isTrusted) {
+        showSystemMessage('🎉 Congratulations! You reached 1000 RP and unlocked Trusted role!');
         imageBtn.disabled = false;
     }
 }
@@ -215,7 +215,7 @@ if (emojiBtn) {
 if (imageBtn) {
     imageBtn.addEventListener('click', () => {
         if (!userData.isTrusted) {
-            alert('Images require Trusted role (100 RP)');
+            alert('Images require Trusted role (1000 RP)');
             return;
         }
         alert('Image upload functionality - connect to backend');
