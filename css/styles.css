@@ -667,11 +667,11 @@ body {
     justify-content: center;
     gap: 1rem;
     padding: 1.2rem 2rem;
-    background: var(--accent-green);
-    border: none;
-    color: var(--bg-primary);
+    background: var(--bg-tertiary);
+    border: 2px solid var(--border-color);
+    color: var(--text-primary);
     font-family: 'Rubik Mono One', sans-serif;
-    font-size: 1.1rem;
+    font-size: 1rem;
     cursor: pointer;
     border-radius: 4px;
     transition: all 0.3s ease;
@@ -681,6 +681,19 @@ body {
 
 .wallet-btn:hover {
     transform: translateY(-2px);
+    border-color: var(--accent-green);
+    background: rgba(125, 255, 125, 0.05);
+    box-shadow: 0 5px 20px var(--glow-green);
+}
+
+.wallet-btn.recommended {
+    background: var(--accent-green);
+    border-color: var(--accent-green);
+    color: var(--bg-primary);
+    box-shadow: 0 0 20px var(--glow-green);
+}
+
+.wallet-btn.recommended:hover {
     box-shadow: 0 5px 30px var(--glow-green);
 }
 
