@@ -380,21 +380,46 @@ async function fetchAllHolders() {
             // Display top holders list
             const holderList = document.getElementById('holderList');
             if (holderList) {
-                holderList.innerHTML = '';
+                holderList.innerHTML = '<div class="loading-more">Loading owner addresses...</div>';
                 
-                // Show up to 250 holders
-                accounts.slice(0, 250).forEach((account, index) => {
-                    const balance = parseFloat(account.amount) / Math.pow(10, tokenDecimals);
-                    const percentage = (parseFloat(account.amount) / totalFromAccounts * 100).toFixed(2);
+                // Get owner addresses (skip first account - usually pool/program)
+                const holdersWithOwners = [];
+                
+                // Start from index 1 to skip the first account
+                for (let i = 1; i < Math.min(accounts.length, 251); i++) {
+                    const account = accounts[i];
+                    const ownerAddress = await getTokenAccountOwner(account.address);
                     
+                    if (ownerAddress) {
+                        const balance = parseFloat(account.amount) / Math.pow(10, tokenDecimals);
+                        const percentage = (parseFloat(account.amount) / totalFromAccounts * 100).toFixed(2);
+                        
+                        holdersWithOwners.push({
+                            owner: ownerAddress,
+                            balance,
+                            percentage,
+                            rank: i // Keep original rank
+                        });
+                    }
+                    
+                    // Show progress every 10 accounts
+                    if (i % 10 === 0) {
+                        holderList.innerHTML = `<div class="loading-more">Loading ${i}/250 owner addresses...</div>`;
+                    }
+                }
+                
+                // Display holders
+                holderList.innerHTML = '';
+                holdersWithOwners.forEach((holder) => {
                     const item = document.createElement('div');
                     item.className = 'holder-item';
                     item.innerHTML = `
-                        <span class="holder-rank">#${index + 1}</span>
-                        <span class="holder-address" title="${account.address}">${account.address.slice(0, 6)}...${account.address.slice(-4)}</span>
-                        <span class="holder-balance">${balance.toLocaleString(undefined, {maximumFractionDigits: 2})} 404</span>
-                        <span class="holder-amount">${percentage}%</span>
+                        <span class="holder-rank">#${holder.rank}</span>
+                        <span class="holder-address" title="${holder.owner}">${holder.owner.slice(0, 6)}...${holder.owner.slice(-4)}</span>
+                        <span class="holder-amount">${holder.percentage}%</span>
                     `;
+                    item.style.cursor = 'pointer';
+                    item.onclick = () => window.open(`https://explorer.mainnet.x1.xyz/address/${holder.owner}`, '_blank');
                     holderList.appendChild(item);
                 });
             }
@@ -404,8 +429,40 @@ async function fetchAllHolders() {
     } catch (error) {
         console.error('Error fetching holders:', error);
         document.getElementById('holders').textContent = 'Error loading';
+        document.getElementById('holderList').innerHTML = '<div class="loading-more">Error loading holders</div>';
     }
     return 0;
+}
+
+// Get owner address of a token account
+async function getTokenAccountOwner(tokenAccountAddress) {
+    try {
+        const response = await fetch(X1_RPC, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                jsonrpc: '2.0',
+                id: 1,
+                method: 'getAccountInfo',
+                params: [
+                    tokenAccountAddress,
+                    { encoding: 'jsonParsed' }
+                ]
+            })
+        });
+
+        const data = await response.json();
+        
+        if (data.result && data.result.value && data.result.value.data) {
+            const parsed = data.result.value.data.parsed;
+            if (parsed && parsed.info && parsed.info.owner) {
+                return parsed.info.owner;
+            }
+        }
+    } catch (error) {
+        console.error('Error getting token account owner:', error);
+    }
+    return null;
 }
 
 // Fetch and Parse Detailed Transactions
@@ -458,31 +515,22 @@ async function fetchDetailedTransactions() {
                 const timeStr = date.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
                 
                 const item = document.createElement('div');
-                item.className = 'transaction-detail-item';
+                item.className = 'transaction-item';
                 item.innerHTML = `
-                    <div class="tx-col tx-timestamp">
-                        <div>${dateStr}</div>
+                    <div class="tx-timestamp">
+                        <div class="tx-date">${dateStr}</div>
                         <div class="tx-time">${timeStr}</div>
                     </div>
-                    <div class="tx-col tx-type">
-                        <span class="tx-type-badge ${tx.type}">${tx.type}</span>
+                    <div>
+                        <span class="tx-type ${tx.type}">${tx.type.toUpperCase()}</span>
                     </div>
-                    <div class="tx-col tx-amounts">
-                        <div>${tx.xntAmount} XNT</div>
-                        <div class="tx-token-amount">${tx.tokenAmount} 404</div>
-                    </div>
-                    <div class="tx-col tx-price">
-                        ${tx.price ? tx.price.toFixed(6) : 'N/A'}
-                    </div>
-                    <div class="tx-col tx-maker">
-                        ${tx.maker.slice(0, 4)}...${tx.maker.slice(-4)}
-                    </div>
-                    <div class="tx-col tx-link">
-                        <a href="https://explorer.mainnet.x1.xyz/tx/${tx.signature}" target="_blank" rel="noopener noreferrer">
-                            view
-                        </a>
-                    </div>
+                    <div class="tx-xnt">${tx.xntAmount}</div>
+                    <div class="tx-404">${tx.tokenAmount}</div>
+                    <div class="tx-price">${tx.price ? tx.price.toFixed(6) : 'N/A'}</div>
+                    <div class="tx-maker">${tx.maker.slice(0, 4)}...${tx.maker.slice(-4)}</div>
                 `;
+                item.style.cursor = 'pointer';
+                item.onclick = () => window.open(`https://explorer.mainnet.x1.xyz/tx/${tx.signature}`, '_blank');
                 txList.appendChild(item);
             });
         }
