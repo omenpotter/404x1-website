@@ -294,6 +294,8 @@ async function fetchTokenPrice() {
         const res = await fetch('/api/price');
         if (res.ok) {
             const data = await res.json();
+            console.log('Proxy response:', data);
+            // Proxy now returns price already correct (1/humanOutput)
             if (data.success && data.price && data.price > 0) {
                 currentPrice = data.price;
                 priceEl.textContent = `${currentPrice.toFixed(8)} XNT`;
@@ -321,20 +323,21 @@ async function fetchTokenPrice() {
         const data = await res.json();
         console.log('Direct xDEX raw:', data);
 
-        // xDEX returns output in SMALLEST UNITS (raw lamports), not human-readable
-        let rawOutput = data.estimatedOutputAmount || data.output_amount
+        // xDEX returns estimatedOutputAmount already in HUMAN-READABLE form
+        // e.g. 518.88 means 1 XNT buys 518.88 tokens
+        // Price per token = 1 / 518.88 = 0.00192727 XNT
+        let outputAmount = data.estimatedOutputAmount || data.output_amount
             || (data.data && (data.data.estimatedOutputAmount || data.data.output_amount))
             || data.result || null;
 
-        if (rawOutput) {
-            const rawNum = parseFloat(rawOutput);
-            // Convert to human-readable: divide by 10^decimals
-            const humanOutput = rawNum / Math.pow(10, tokenDecimals);
-            // Price = 1 XNT / humanOutput tokens
-            currentPrice = 1 / humanOutput;
-            priceEl.textContent = `${currentPrice.toFixed(8)} XNT`;
-            console.log(`Direct xDEX: raw=${rawNum} decimals=${tokenDecimals} human=${humanOutput} price=${currentPrice}`);
-            return currentPrice;
+        if (outputAmount) {
+            outputAmount = parseFloat(outputAmount);
+            if (outputAmount > 0) {
+                currentPrice = 1 / outputAmount;
+                priceEl.textContent = `${currentPrice.toFixed(8)} XNT`;
+                console.log(`xDEX: 1 XNT buys ${outputAmount} 404 → price = ${currentPrice} XNT`);
+                return currentPrice;
+            }
         }
     } catch (e) {
         console.log('Direct xDEX failed (CORS?):', e.message);
@@ -345,28 +348,43 @@ async function fetchTokenPrice() {
         const sigRes = await fetch(X1_RPC, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'getSignaturesForAddress', params: [TOKEN_CA, { limit: 1 }] })
+            body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'getSignaturesForAddress', params: [TOKEN_CA, { limit: 5 }] })
         });
         const sigData = await sigRes.json();
         if (sigData.result && sigData.result.length > 0) {
-            const txRes = await fetch(X1_RPC, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ jsonrpc: '2.0', id: 2, method: 'getTransaction', params: [sigData.result[0].signature, { encoding: 'jsonParsed', maxSupportedTransactionVersion: 0 }] })
-            });
-            const txData = await txRes.json();
-            if (txData.result && txData.result.meta) {
-                const meta = txData.result.meta;
-                const pre = meta.preTokenBalances && meta.preTokenBalances.find(b => b.mint === TOKEN_CA);
-                const post = meta.postTokenBalances && meta.postTokenBalances.find(b => b.mint === TOKEN_CA);
-                if (pre && post) {
-                    const tokenChange = Math.abs((post.uiTokenAmount.uiAmount || 0) - (pre.uiTokenAmount.uiAmount || 0));
-                    const xntChange = Math.abs(meta.postBalances[0] - meta.preBalances[0]) / 1e9;
-                    if (tokenChange > 0 && xntChange > 0) {
-                        currentPrice = xntChange / tokenChange;
-                        priceEl.textContent = `${currentPrice.toFixed(8)} XNT`;
-                        console.log('Price from on-chain tx:', currentPrice);
-                        return currentPrice;
+            // Try up to 5 recent txs — skip pool-internal ones that have no real XNT flow
+            for (let i = 0; i < sigData.result.length; i++) {
+                const txRes = await fetch(X1_RPC, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ jsonrpc: '2.0', id: 2, method: 'getTransaction', params: [sigData.result[i].signature, { encoding: 'jsonParsed', maxSupportedTransactionVersion: 0 }] })
+                });
+                const txData = await txRes.json();
+                if (txData.result && txData.result.meta) {
+                    const meta = txData.result.meta;
+                    const pre404 = meta.preTokenBalances && meta.preTokenBalances.find(b => b.mint === TOKEN_CA);
+                    const post404 = meta.postTokenBalances && meta.postTokenBalances.find(b => b.mint === TOKEN_CA);
+                    if (pre404 && post404) {
+                        const tokenChange = Math.abs((post404.uiTokenAmount.uiAmount || 0) - (pre404.uiTokenAmount.uiAmount || 0));
+
+                        // Look for wrapped XNT token balance change (not native lamports)
+                        const preXnt = meta.preTokenBalances.find(b => b.mint === WXNT_ADDRESS);
+                        const postXnt = meta.postTokenBalances.find(b => b.mint === WXNT_ADDRESS);
+                        let xntChange = 0;
+                        if (preXnt && postXnt) {
+                            xntChange = Math.abs((postXnt.uiTokenAmount.uiAmount || 0) - (preXnt.uiTokenAmount.uiAmount || 0));
+                        }
+                        // Fallback: native lamport diff
+                        if (xntChange === 0) {
+                            xntChange = Math.abs(meta.postBalances[0] - meta.preBalances[0]) / 1e9;
+                        }
+
+                        if (tokenChange > 0 && xntChange > 0.0001) {
+                            currentPrice = xntChange / tokenChange;
+                            priceEl.textContent = `${currentPrice.toFixed(8)} XNT`;
+                            console.log(`Price from on-chain tx[${i}]: ${xntChange} XNT / ${tokenChange} tokens = ${currentPrice}`);
+                            return currentPrice;
+                        }
                     }
                 }
             }
@@ -684,41 +702,93 @@ async function fetchTransactionDetail(signature) {
             const tx = data.result.transaction;
             const meta = data.result.meta;
             
-            // Parse transaction to determine type and amounts
-            // This is simplified - you may need to parse the instruction data
-            const instructions = tx.message.instructions;
-            
-            // Try to determine if it's a buy or sell
             let type = 'swap';
-            let xntAmount = '0.00';
-            let tokenAmount = '0.00';
+            let xntAmount = 0;
+            let tokenAmount = 0;
             let maker = tx.message.accountKeys[0]?.pubkey || 'Unknown';
             
-            // Look for token balance changes
-            if (meta && meta.postTokenBalances && meta.preTokenBalances) {
-                const preBalance = meta.preTokenBalances.find(b => b.mint === TOKEN_CA);
-                const postBalance = meta.postTokenBalances.find(b => b.mint === TOKEN_CA);
-                
-                if (preBalance && postBalance) {
-                    const change = postBalance.uiTokenAmount.uiAmount - preBalance.uiTokenAmount.uiAmount;
-                    tokenAmount = Math.abs(change).toFixed(2);
-                    type = change > 0 ? 'buy' : 'sell';
+            if (!meta || !meta.postTokenBalances || !meta.preTokenBalances) return null;
+
+            // --- 404 token change ---
+            // Sum ALL balance changes for this mint (a single tx can touch multiple 404 accounts)
+            let totalTokenChange = 0;
+            const pre404map = {};
+            meta.preTokenBalances.forEach(b => {
+                if (b.mint === TOKEN_CA) {
+                    pre404map[b.accountIndex] = b.uiTokenAmount.uiAmount || 0;
+                }
+            });
+            meta.postTokenBalances.forEach(b => {
+                if (b.mint === TOKEN_CA) {
+                    const pre = pre404map[b.accountIndex] || 0;
+                    const post = b.uiTokenAmount.uiAmount || 0;
+                    totalTokenChange += (post - pre);
+                }
+            });
+            // Also catch accounts that existed in pre but not post (closed)
+            meta.preTokenBalances.forEach(b => {
+                if (b.mint === TOKEN_CA && !meta.postTokenBalances.find(p => p.accountIndex === b.accountIndex)) {
+                    totalTokenChange -= (b.uiTokenAmount.uiAmount || 0);
+                }
+            });
+
+            tokenAmount = Math.abs(totalTokenChange);
+            // BUY = tokens flowed TO the maker (positive change on maker's account)
+            // We detect by checking if the maker's own 404 account increased
+            const makerPreIdx = meta.preTokenBalances.find(b => b.mint === TOKEN_CA && b.owner === maker);
+            const makerPostIdx = meta.postTokenBalances.find(b => b.mint === TOKEN_CA && b.owner === maker);
+            if (makerPreIdx && makerPostIdx) {
+                const makerChange = (makerPostIdx.uiTokenAmount.uiAmount || 0) - (makerPreIdx.uiTokenAmount.uiAmount || 0);
+                type = makerChange > 0 ? 'buy' : 'sell';
+            } else if (totalTokenChange > 0) {
+                type = 'buy';
+            } else {
+                type = 'sell';
+            }
+
+            // --- XNT change: check wrapped XNT token balances first, then native ---
+            // Wrapped XNT (So111...112) is how xDEX pools hold XNT internally
+            let totalXntChange = 0;
+            const preXntMap = {};
+            meta.preTokenBalances.forEach(b => {
+                if (b.mint === WXNT_ADDRESS) {
+                    preXntMap[b.accountIndex] = b.uiTokenAmount.uiAmount || 0;
+                }
+            });
+            meta.postTokenBalances.forEach(b => {
+                if (b.mint === WXNT_ADDRESS) {
+                    const pre = preXntMap[b.accountIndex] || 0;
+                    const post = b.uiTokenAmount.uiAmount || 0;
+                    totalXntChange += Math.abs(post - pre);
+                }
+            });
+            xntAmount = totalXntChange;
+
+            // Fallback: if no wrapped XNT found, use native lamport diff on fee payer
+            if (xntAmount === 0 && meta.preBalances && meta.postBalances) {
+                // Sum native balance changes across ALL accounts (not just [0])
+                for (let i = 0; i < meta.preBalances.length; i++) {
+                    const diff = Math.abs(meta.postBalances[i] - meta.preBalances[i]) / 1e9;
+                    if (diff > 0.001) { // ignore tiny rent/fee diffs
+                        xntAmount = diff;
+                        break;
+                    }
                 }
             }
-            
-            // Get SOL/XNT amount from balance changes
-            if (meta && meta.preBalances && meta.postBalances) {
-                const balanceChange = meta.postBalances[0] - meta.preBalances[0];
-                xntAmount = (Math.abs(balanceChange) / 1e9).toFixed(2);
+
+            // If both XNT and token amount are effectively zero, this is a pool-internal
+            // event with no meaningful user trade — skip it
+            if (tokenAmount < 0.01 && xntAmount < 0.0001) {
+                return null;
             }
-            
-            const price = parseFloat(tokenAmount) > 0 ? 
-                parseFloat(xntAmount) / parseFloat(tokenAmount) : 0;
-            
+
+            // Per-transaction price
+            const price = (tokenAmount > 0 && xntAmount > 0) ? xntAmount / tokenAmount : 0;
+
             return {
                 type,
-                xntAmount,
-                tokenAmount,
+                xntAmount: xntAmount.toFixed(4),
+                tokenAmount: tokenAmount.toFixed(2),
                 price,
                 maker
             };
