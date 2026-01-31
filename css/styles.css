@@ -1042,7 +1042,7 @@ body {
 /* Live Data Feed */
 .live-data-feed {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    grid-template-columns: 65fr 35fr;
     gap: 2rem;
 }
 
@@ -1080,11 +1080,46 @@ body {
     font-size: 0.9rem;
 }
 
+/* Transaction Item - New Layout */
+.transaction-item {
+    display: grid;
+    grid-template-columns: 120px 80px 100px 100px 100px 100px;
+    gap: 1rem;
+    align-items: center;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.transaction-item:hover {
+    background: var(--bg-primary);
+    border-left: 3px solid var(--accent-green);
+}
+
+.tx-timestamp {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+}
+
+.tx-date {
+    font-weight: bold;
+}
+
+.tx-time {
+    color: var(--text-muted);
+    font-size: 0.8rem;
+}
+
 .tx-type {
-    padding: 0.3rem 0.8rem;
+    display: inline-block;
+    padding: 0.4rem 0.8rem;
     border-radius: 4px;
     font-weight: bold;
-    font-size: 0.8rem;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    text-align: center;
 }
 
 .tx-type.buy {
@@ -1097,13 +1132,47 @@ body {
     color: var(--error-red);
 }
 
-.tx-amount {
-    color: var(--text-primary);
+.tx-type.swap {
+    background: rgba(0, 191, 255, 0.2);
+    color: var(--accent-cyan);
 }
 
-.tx-time {
-    color: var(--text-muted);
-    font-size: 0.8rem;
+.tx-xnt {
+    color: var(--accent-cyan);
+    font-weight: bold;
+    font-family: 'Share Tech Mono', monospace;
+}
+
+.tx-404 {
+    color: var(--text-primary);
+    font-weight: bold;
+    font-family: 'Share Tech Mono', monospace;
+}
+
+.tx-price {
+    color: var(--accent-green);
+    font-weight: bold;
+    font-family: 'Share Tech Mono', monospace;
+}
+
+.tx-maker {
+    color: var(--text-secondary);
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.85rem;
+}
+
+/* Holder Item */
+.holder-item {
+    display: grid;
+    grid-template-columns: 40px 1fr 80px;
+    gap: 0.8rem;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.holder-item:hover {
+    background: var(--bg-primary);
+    border-left: 3px solid var(--accent-green);
 }
 
 .holder-rank {
