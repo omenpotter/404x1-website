@@ -101,10 +101,10 @@
         </div>
 
         <div class="floating-elements">
-            <div class="float-item" style="left: 10%; top: 20%; animation-delay: 0s">404</div>
-            <div class="float-item" style="left: 85%; top: 30%; animation-delay: 2s">X1</div>
-            <div class="float-item" style="left: 15%; top: 70%; animation-delay: 4s">ERROR</div>
-            <div class="float-item" style="left: 80%; top: 65%; animation-delay: 6s">SVM</div>
+            <div class="float-item" style="left: 10%; top: 20%; animation-delay: 0s">404 ERROR</div>
+            <div class="float-item" style="left: 85%; top: 30%; animation-delay: 2s">X1 SVM</div>
+            <div class="float-item" style="left: 15%; top: 70%; animation-delay: 4s">404 ERROR</div>
+            <div class="float-item" style="left: 80%; top: 65%; animation-delay: 6s">X1 SVM</div>
         </div>
     </main>
 
@@ -130,13 +130,31 @@
                 <h2 class="glitch" data-text="CONNECT WALLET">CONNECT WALLET</h2>
                 
                 <div class="wallet-info">
-                    <p>Connect your X1 wallet to access the platform</p>
+                    <p>Connect your wallet to access the platform</p>
                 </div>
 
                 <div class="wallet-buttons">
-                    <button class="wallet-btn" id="connectWalletBtn">
+                    <button class="wallet-btn recommended" id="connectX1Wallet">
+                        <span class="wallet-icon">⭐</span>
+                        <span>X1 Wallet (Recommended)</span>
+                        <div class="button-glow"></div>
+                    </button>
+                    
+                    <button class="wallet-btn" id="connectPhantomWallet">
+                        <span class="wallet-icon">👻</span>
+                        <span>Phantom Wallet</span>
+                        <div class="button-glow"></div>
+                    </button>
+                    
+                    <button class="wallet-btn" id="connectBackpackWallet">
+                        <span class="wallet-icon">🎒</span>
+                        <span>Backpack Wallet</span>
+                        <div class="button-glow"></div>
+                    </button>
+                    
+                    <button class="wallet-btn" id="connectMetaMaskWallet">
                         <span class="wallet-icon">🦊</span>
-                        <span>Connect Wallet</span>
+                        <span>MetaMask</span>
                         <div class="button-glow"></div>
                     </button>
                 </div>
@@ -160,7 +178,7 @@
                 </div>
 
                 <div class="wallet-note">
-                    <p>Make sure you're on the X1 SVM network</p>
+                    <p>Don't have X1 Wallet? <a href="https://chromewebstore.google.com/detail/kcfmcpdmlchhbikbogddmgopmjbflnae" target="_blank" rel="noopener noreferrer" style="color: var(--accent-green); text-decoration: underline;">Install Here</a></p>
                 </div>
             </div>
         </div>
