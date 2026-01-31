@@ -298,6 +298,10 @@ async function fetchTokenPrice() {
             }
         });
 
+        if (!response.ok) {
+            throw new Error(`API returned ${response.status}: ${response.statusText}`);
+        }
+
         const data = await response.json();
         console.log('Price API Response:', data);
         
@@ -307,13 +311,21 @@ async function fetchTokenPrice() {
             document.getElementById('priceXNT').textContent = `${price.toFixed(8)} XNT`;
             return price;
         } else {
-            throw new Error('Invalid price data: ' + JSON.stringify(data));
+            console.error('Price API error:', data.error || 'Unknown error');
+            throw new Error(data.error || 'Invalid price data');
         }
     } catch (error) {
         console.error('Error fetching price:', error);
-        document.getElementById('priceXNT').textContent = currentPrice 
-            ? `${currentPrice.toFixed(8)} XNT (cached)`
-            : 'Error loading';
+        
+        // Show appropriate message
+        if (currentPrice) {
+            document.getElementById('priceXNT').textContent = `${currentPrice.toFixed(8)} XNT`;
+        } else if (error.message.includes('404')) {
+            document.getElementById('priceXNT').textContent = 'API not deployed';
+        } else {
+            document.getElementById('priceXNT').textContent = 'Loading...';
+        }
+        
         return currentPrice; // Return cached price
     }
 }
@@ -374,20 +386,29 @@ async function fetchAllHolders() {
                 sum + parseFloat(acc.amount), 0
             );
             
-            // Display holder count
-            document.getElementById('holders').textContent = `${accounts.length}+ holders`;
+            // Display actual holder count
+            document.getElementById('holders').textContent = `${accounts.length} holders`;
             
             // Display top holders list
             const holderList = document.getElementById('holderList');
             if (holderList) {
-                holderList.innerHTML = '<div class="loading-more">Loading owner addresses...</div>';
+                // Don't clear - show loading message
+                holderList.innerHTML = '<div class="loading-more">Loading owner addresses (this may take a minute)...</div>';
                 
                 // Get owner addresses (skip first account - usually pool/program)
                 const holdersWithOwners = [];
                 
-                // Start from index 1 to skip the first account
-                for (let i = 1; i < Math.min(accounts.length, 251); i++) {
+                // Start from index 1 to skip the first account, load up to 250
+                const maxHolders = Math.min(accounts.length, 250);
+                
+                for (let i = 1; i < maxHolders; i++) {
                     const account = accounts[i];
+                    
+                    // Show progress every 20 accounts
+                    if (i % 20 === 0) {
+                        holderList.innerHTML = `<div class="loading-more">Loading ${i}/${maxHolders} owner addresses...</div>`;
+                    }
+                    
                     const ownerAddress = await getTokenAccountOwner(account.address);
                     
                     if (ownerAddress) {
@@ -401,14 +422,11 @@ async function fetchAllHolders() {
                             rank: i // Keep original rank
                         });
                     }
-                    
-                    // Show progress every 10 accounts
-                    if (i % 10 === 0) {
-                        holderList.innerHTML = `<div class="loading-more">Loading ${i}/250 owner addresses...</div>`;
-                    }
                 }
                 
-                // Display holders
+                console.log(`Loaded ${holdersWithOwners.length} holders with owner addresses`);
+                
+                // NOW display all holders at once (won't vanish)
                 holderList.innerHTML = '';
                 holdersWithOwners.forEach((holder) => {
                     const item = document.createElement('div');
@@ -422,6 +440,10 @@ async function fetchAllHolders() {
                     item.onclick = () => window.open(`https://explorer.mainnet.x1.xyz/address/${holder.owner}`, '_blank');
                     holderList.appendChild(item);
                 });
+                
+                if (holdersWithOwners.length === 0) {
+                    holderList.innerHTML = '<div class="loading-more">No holder data available</div>';
+                }
             }
             
             return accounts.length;
@@ -668,15 +690,18 @@ if (document.getElementById('priceXNT')) {
         await calculateMarketCap();
     }, 15000);
     
-    // Refresh holders every 60 seconds
-    setInterval(() => {
-        fetchAllHolders();
-    }, 60000);
+    // Refresh price and market cap every 15 seconds
+    setInterval(async () => {
+        const price = await fetchTokenPrice();
+        const tokenInfo = await fetchTokenSupply();
+        if (price && tokenInfo) {
+            await calculateMarketCap(price, tokenInfo.supply);
+        }
+    }, 15000);
     
-    // Refresh transactions every 30 seconds
-    setInterval(() => {
-        fetchDetailedTransactions();
-    }, 30000);
+    // DON'T auto-refresh holders (too slow, takes 1-2 minutes)
+    // DON'T auto-refresh transactions (causes vanishing)
+    // User can refresh page to get new data
 }
 
 // TradingView Chart Integration
