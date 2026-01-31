@@ -1039,27 +1039,90 @@ body {
     height: 28px;
 }
 
-/* Live Data Feed */
+/* Live Data Feed — Tabbed */
 .live-data-feed {
-    display: grid;
-    grid-template-columns: 65fr 35fr;
-    gap: 2rem;
-}
-
-.live-transactions,
-.live-holders {
     background: var(--bg-secondary);
     border: 1px solid var(--border-color);
     border-radius: 8px;
-    padding: 2rem;
+    overflow: hidden;
 }
 
-.live-transactions h3,
-.live-holders h3 {
-    color: var(--accent-green);
+/* Tab bar */
+.feed-tabs {
+    display: flex;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.feed-tab {
+    flex: 1;
+    padding: 1rem 1.5rem;
+    background: var(--bg-tertiary);
+    border: none;
+    color: var(--text-muted);
     font-family: 'Rubik Mono One', sans-serif;
-    font-size: 1.1rem;
-    margin-bottom: 1.5rem;
+    font-size: 0.95rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    border-right: 1px solid var(--border-color);
+}
+.feed-tab:last-child {
+    border-right: none;
+}
+.feed-tab:hover {
+    color: var(--text-primary);
+    background: var(--bg-secondary);
+}
+.feed-tab.active {
+    background: var(--bg-secondary);
+    color: var(--accent-green);
+    box-shadow: inset 0 -2px 0 var(--accent-green);
+}
+
+/* Panels */
+.feed-panel {
+    display: none;
+    padding: 1.5rem;
+}
+.feed-panel.active {
+    display: block;
+}
+
+/* Transaction header row */
+.transaction-header {
+    display: grid;
+    grid-template-columns: 120px 80px 1fr 1fr 1fr 1fr;
+    gap: 1rem;
+    padding: 0.7rem 0.8rem;
+    background: var(--bg-tertiary);
+    border-radius: 4px;
+    margin-bottom: 0.5rem;
+    font-weight: bold;
+    font-size: 0.82rem;
+    color: var(--accent-green);
+    font-family: 'Share Tech Mono', monospace;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+/* Holder header row */
+.holder-header {
+    display: grid;
+    grid-template-columns: 50px 1fr 140px 90px;
+    gap: 0.8rem;
+    padding: 0.7rem 0.8rem;
+    background: var(--bg-tertiary);
+    border-radius: 4px;
+    margin-bottom: 0.5rem;
+    font-weight: bold;
+    font-size: 0.82rem;
+    color: var(--accent-green);
+    font-family: 'Share Tech Mono', monospace;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+.holder-header div:nth-child(3),
+.holder-header div:nth-child(4) {
+    text-align: right;
 }
 
 .transaction-list,
@@ -1071,7 +1134,7 @@ body {
 
 .transaction-item {
     display: grid;
-    grid-template-columns: 120px 80px 100px 100px 100px 100px;
+    grid-template-columns: 120px 80px 1fr 1fr 1fr 1fr;
     gap: 1rem;
     align-items: center;
     cursor: pointer;
@@ -1152,7 +1215,7 @@ body {
 /* Holder Item — single authoritative definition */
 .holder-item {
     display: grid;
-    grid-template-columns: 40px 1fr 100px 70px;
+    grid-template-columns: 50px 1fr 140px 90px;
     gap: 0.8rem;
     align-items: center;
     padding: 0.7rem 0.8rem;
@@ -1218,7 +1281,7 @@ body {
     }
     
     .live-data-feed {
-        grid-template-columns: 1fr;
+        /* tabs stack naturally, no grid override needed */
     }
     
     .ca-address {
@@ -1389,7 +1452,7 @@ body {
 
 @media (max-width: 768px) {
     .holder-item {
-        grid-template-columns: 40px 100px 1fr 70px;
+        grid-template-columns: 40px 1fr 100px 70px;
         gap: 0.5rem;
         font-size: 0.85rem;
     }
