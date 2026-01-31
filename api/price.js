@@ -14,16 +14,29 @@ export default async function handler(req, res) {
 
     try {
         const TOKEN_CA = '4o4UheANLdqF4gSV4zWTbCTCercQNSaTm6nVcDetzPb2';
-        // Correct wrapped XNT address on X1 (same format as wrapped SOL on Solana)
         const WXNT_ADDRESS = 'So11111111111111111111111111111111111111112';
+        const X1_RPC = 'https://rpc.mainnet.x1.xyz/';
 
-        // Ask xDEX: "If I put in 1 XNT, how many 404 tokens do I get out?"
+        // Step 1: Get token decimals from chain
+        let decimals = 9; // default fallback
+        try {
+            const supplyRes = await fetch(X1_RPC, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'getTokenSupply', params: [TOKEN_CA] })
+            });
+            const supplyData = await supplyRes.json();
+            if (supplyData.result && supplyData.result.value) {
+                decimals = supplyData.result.value.decimals;
+            }
+        } catch (e) {
+            console.log('Could not fetch decimals, using default 9');
+        }
+
+        // Step 2: Ask xDEX: "If I put in 1 XNT, how many 404 tokens do I get out?"
         const response = await fetch('https://api.xdex.xyz/api/xendex/swap/prepare', {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Accept': 'application/json'
-            },
+            headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
             body: JSON.stringify({
                 network: 'X1 Mainnet',
                 wallet: '11111111111111111111111111111111',
@@ -37,28 +50,29 @@ export default async function handler(req, res) {
         const data = await response.json();
         console.log('xDEX raw response:', JSON.stringify(data));
 
-        // Extract how many 404 tokens come out for 1 XNT input
-        let outputAmount = null;
-        if (data.estimatedOutputAmount) {
-            outputAmount = parseFloat(data.estimatedOutputAmount);
-        } else if (data.output_amount) {
-            outputAmount = parseFloat(data.output_amount);
-        } else if (data.data && data.data.estimatedOutputAmount) {
-            outputAmount = parseFloat(data.data.estimatedOutputAmount);
-        } else if (data.data && data.data.output_amount) {
-            outputAmount = parseFloat(data.data.output_amount);
-        } else if (data.result) {
-            outputAmount = parseFloat(data.result);
-        }
+        // Extract the raw output amount (this is in SMALLEST UNITS, not human-readable)
+        let rawOutput = null;
+        if (data.estimatedOutputAmount) rawOutput = data.estimatedOutputAmount;
+        else if (data.output_amount) rawOutput = data.output_amount;
+        else if (data.data && data.data.estimatedOutputAmount) rawOutput = data.data.estimatedOutputAmount;
+        else if (data.data && data.data.output_amount) rawOutput = data.data.output_amount;
+        else if (data.result) rawOutput = data.result;
 
-        if (outputAmount && outputAmount > 0) {
-            // Price per 404 token in XNT = 1 XNT / outputAmount tokens
-            // e.g. 1 XNT buys 4000 tokens → each token = 0.00025 XNT
-            const pricePerToken = 1 / outputAmount;
+        if (rawOutput && parseFloat(rawOutput) > 0) {
+            const rawOutputNum = parseFloat(rawOutput);
+            // Convert from smallest units to human-readable token amount
+            const humanOutput = rawOutputNum / Math.pow(10, decimals);
+            // Price per token = 1 XNT / humanOutput tokens
+            const pricePerToken = 1 / humanOutput;
+
+            console.log(`decimals=${decimals} | rawOutput=${rawOutputNum} | humanOutput=${humanOutput} | price=${pricePerToken}`);
+
             res.status(200).json({
                 success: true,
                 price: pricePerToken,
-                outputAmount: outputAmount,
+                humanOutput: humanOutput,
+                rawOutput: rawOutputNum,
+                decimals: decimals,
                 raw: data
             });
         } else {
