@@ -15,25 +15,8 @@ export default async function handler(req, res) {
     try {
         const TOKEN_CA = '4o4UheANLdqF4gSV4zWTbCTCercQNSaTm6nVcDetzPb2';
         const WXNT_ADDRESS = 'So11111111111111111111111111111111111111112';
-        const X1_RPC = 'https://rpc.mainnet.x1.xyz/';
 
-        // Step 1: Get token decimals from chain
-        let decimals = 9; // default fallback
-        try {
-            const supplyRes = await fetch(X1_RPC, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'getTokenSupply', params: [TOKEN_CA] })
-            });
-            const supplyData = await supplyRes.json();
-            if (supplyData.result && supplyData.result.value) {
-                decimals = supplyData.result.value.decimals;
-            }
-        } catch (e) {
-            console.log('Could not fetch decimals, using default 9');
-        }
-
-        // Step 2: Ask xDEX: "If I put in 1 XNT, how many 404 tokens do I get out?"
+        // Ask xDEX: "If I put in 1 XNT, how many 404 tokens do I get out?"
         const response = await fetch('https://api.xdex.xyz/api/xendex/swap/prepare', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
@@ -50,29 +33,27 @@ export default async function handler(req, res) {
         const data = await response.json();
         console.log('xDEX raw response:', JSON.stringify(data));
 
-        // Extract the raw output amount (this is in SMALLEST UNITS, not human-readable)
-        let rawOutput = null;
-        if (data.estimatedOutputAmount) rawOutput = data.estimatedOutputAmount;
-        else if (data.output_amount) rawOutput = data.output_amount;
-        else if (data.data && data.data.estimatedOutputAmount) rawOutput = data.data.estimatedOutputAmount;
-        else if (data.data && data.data.output_amount) rawOutput = data.data.output_amount;
-        else if (data.result) rawOutput = data.result;
+        // xDEX returns estimatedOutputAmount already human-readable
+        // e.g. 518.88 means 1 XNT buys 518.88 tokens
+        let outputAmount = null;
+        if (data.estimatedOutputAmount) outputAmount = data.estimatedOutputAmount;
+        else if (data.output_amount) outputAmount = data.output_amount;
+        else if (data.data && data.data.estimatedOutputAmount) outputAmount = data.data.estimatedOutputAmount;
+        else if (data.data && data.data.output_amount) outputAmount = data.data.output_amount;
+        else if (data.result) outputAmount = data.result;
 
-        if (rawOutput && parseFloat(rawOutput) > 0) {
-            const rawOutputNum = parseFloat(rawOutput);
-            // Convert from smallest units to human-readable token amount
-            const humanOutput = rawOutputNum / Math.pow(10, decimals);
-            // Price per token = 1 XNT / humanOutput tokens
-            const pricePerToken = 1 / humanOutput;
+        if (outputAmount && parseFloat(outputAmount) > 0) {
+            const outputNum = parseFloat(outputAmount);
+            // Price per token = 1 XNT / outputNum tokens
+            // e.g. 1 / 518.88 = 0.00192727 XNT per token
+            const pricePerToken = 1 / outputNum;
 
-            console.log(`decimals=${decimals} | rawOutput=${rawOutputNum} | humanOutput=${humanOutput} | price=${pricePerToken}`);
+            console.log(`outputAmount=${outputNum} | price=${pricePerToken}`);
 
             res.status(200).json({
                 success: true,
                 price: pricePerToken,
-                humanOutput: humanOutput,
-                rawOutput: rawOutputNum,
-                decimals: decimals,
+                outputAmount: outputNum,
                 raw: data
             });
         } else {
