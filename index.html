@@ -12,6 +12,7 @@
 <body>
     <div class="scanlines"></div>
     <div class="noise"></div>
+    <div class="matrix-bg" id="matrixBg"></div>
     
     <nav class="navbar">
         <div class="nav-container">
@@ -31,8 +32,8 @@
     <main class="hero">
         <div class="hero-content">
             <div class="hero-glitch-wrapper">
-                <h1 class="hero-title glitch-large" data-text="404">404</h1>
-                <p class="hero-subtitle">Error_ Page Not Found</p>
+                <h1 class="hero-title glitch-large" data-text="404 ERROR">404 ERROR</h1>
+                <p class="hero-subtitle">Page Not Found</p>
             </div>
             
             <div class="error-list">
@@ -60,7 +61,7 @@
 
             <div class="token-description">
                 <p class="token-intro">
-                    <span class="highlight">404</span> is a minimal, experimental meme token on <span class="highlight">X1 SVM</span> 
+                    <span class="highlight">404 ERROR</span> is a minimal, experimental meme token on <span class="highlight">X1 SVM</span> 
                     inspired by the most familiar error on the internet.
                 </p>
                 <p class="token-philosophy">
@@ -88,8 +89,8 @@
                 </div>
                 <div class="rp-card">
                     <div class="rp-icon">🎮</div>
-                    <h3>Contra-Style Game</h3>
-                    <p>50 brutal levels across 10 worlds. Skill beats grind. No hand-holding.</p>
+                    <h3>Brutal Run & Gun Game</h3>
+                    <p>50 intense levels across 10 worlds. Skill beats grind. No hand-holding.</p>
                 </div>
                 <div class="rp-card">
                     <div class="rp-icon">🏆</div>
@@ -126,50 +127,41 @@
         <div class="modal-content">
             <span class="modal-close" id="modalClose">&times;</span>
             <div class="auth-container">
-                <h2 class="glitch" data-text="ACCESS TERMINAL">ACCESS TERMINAL</h2>
+                <h2 class="glitch" data-text="CONNECT WALLET">CONNECT WALLET</h2>
                 
-                <div class="auth-tabs">
-                    <button class="auth-tab active" data-tab="login">LOGIN</button>
-                    <button class="auth-tab" data-tab="signup">SIGNUP</button>
+                <div class="wallet-info">
+                    <p>Connect your X1 wallet to access the platform</p>
                 </div>
 
-                <form class="auth-form" id="loginForm">
-                    <div class="form-group">
-                        <label>EMAIL</label>
-                        <input type="email" placeholder="user@404x1.xyz" required>
-                    </div>
-                    <div class="form-group">
-                        <label>PASSWORD</label>
-                        <input type="password" placeholder="••••••••" required>
-                    </div>
-                    <button type="submit" class="submit-btn">
-                        <span>LOGIN</span>
+                <div class="wallet-buttons">
+                    <button class="wallet-btn" id="connectWalletBtn">
+                        <span class="wallet-icon">🦊</span>
+                        <span>Connect Wallet</span>
                         <div class="button-glow"></div>
                     </button>
-                </form>
+                </div>
 
-                <form class="auth-form hidden" id="signupForm">
+                <div class="username-setup hidden" id="usernameSetup">
+                    <h3>Set Your Username</h3>
+                    <p class="warning-text">⚠️ Username is PERMANENT and cannot be changed!</p>
+                    
                     <div class="form-group">
-                        <label>EMAIL</label>
-                        <input type="email" placeholder="user@404x1.xyz" required>
+                        <label>CHAT NAME (3-16 chars, permanent)</label>
+                        <input type="text" id="chatNameInput" placeholder="username" pattern="[a-zA-Z0-9_]{3,16}" required>
                     </div>
                     <div class="form-group">
-                        <label>PASSWORD</label>
-                        <input type="password" placeholder="••••••••" required>
+                        <label>GAME NAME (3-16 chars, permanent)</label>
+                        <input type="text" id="gameNameInput" placeholder="playername" pattern="[a-zA-Z0-9_]{3,16}" required>
                     </div>
-                    <div class="form-group">
-                        <label>CHAT NAME (3-16 chars)</label>
-                        <input type="text" placeholder="username" pattern="[a-zA-Z0-9_]{3,16}" required>
-                    </div>
-                    <div class="form-group">
-                        <label>GAME NAME (3-16 chars)</label>
-                        <input type="text" placeholder="playername" pattern="[a-zA-Z0-9_]{3,16}" required>
-                    </div>
-                    <button type="submit" class="submit-btn">
-                        <span>CREATE ACCOUNT</span>
+                    <button class="submit-btn" id="confirmUsernameBtn">
+                        <span>CONFIRM & LOCK USERNAME</span>
                         <div class="button-glow"></div>
                     </button>
-                </form>
+                </div>
+
+                <div class="wallet-note">
+                    <p>Make sure you're on the X1 SVM network</p>
+                </div>
             </div>
         </div>
     </div>
