@@ -1164,8 +1164,9 @@ body {
 /* Holder Item */
 .holder-item {
     display: grid;
-    grid-template-columns: 40px 1fr 80px;
+    grid-template-columns: 40px 1fr 100px 70px;
     gap: 0.8rem;
+    align-items: center;
     cursor: pointer;
     transition: all 0.3s ease;
 }
@@ -1173,6 +1174,32 @@ body {
 .holder-item:hover {
     background: var(--bg-primary);
     border-left: 3px solid var(--accent-green);
+}
+
+.holder-rank {
+    color: var(--text-muted);
+    font-size: 0.9rem;
+}
+
+.holder-address {
+    color: var(--text-secondary);
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.9rem;
+}
+
+.holder-balance {
+    color: var(--accent-cyan);
+    font-weight: bold;
+    text-align: right;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.9rem;
+}
+
+.holder-amount {
+    color: var(--accent-green);
+    font-weight: bold;
+    text-align: right;
+    font-size: 0.9rem;
 }
 
 .holder-rank {
