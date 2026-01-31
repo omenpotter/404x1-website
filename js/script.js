@@ -408,88 +408,167 @@ async function fetchTokenSupply() {
     return null;
 }
 
-// Fetch ALL Token Holders (not just largest)
+// Fetch ALL Token Holders using getProgramAccounts + getMultipleAccounts
 async function fetchAllHolders() {
-    try {
-        console.log('Fetching all holders...');
-        
-        // Get the largest accounts
-        const response = await fetch(X1_RPC, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                jsonrpc: '2.0',
-                id: 1,
-                method: 'getTokenLargestAccounts',
-                params: [TOKEN_CA, { commitment: 'confirmed', limit: 500 }]
-            })
-        });
+    const holdersEl = document.getElementById('holders');
+    const holderList = document.getElementById('holderList');
+    if (!holdersEl || !holderList) return 0;
 
-        const data = await response.json();
-        console.log('Holders Response:', data);
-        
-        if (data.result && data.result.value && data.result.value.length > 0) {
-            const accounts = data.result.value;
-            
-            // Calculate total supply
-            const totalSupply = accounts.reduce((sum, acc) => 
-                sum + parseFloat(acc.amount), 0
-            );
-            
-            // Display actual holder count
-            document.getElementById('holders').textContent = `${accounts.length} holders`;
-            
-            // Display ALL holders (skip first one - usually pool)
-            const holderList = document.getElementById('holderList');
-            if (holderList) {
-                holderList.innerHTML = '';
-                
-                // Show all accounts starting from index 1 (skip pool)
-                for (let i = 1; i < accounts.length; i++) {
-                    const account = accounts[i];
-                    const amount = parseFloat(account.amount) / Math.pow(10, tokenDecimals);
-                    const percentage = (parseFloat(account.amount) / totalSupply * 100).toFixed(2);
-                    
-                    // Format amount (33.17K style)
-                    let amountFormatted;
-                    if (amount >= 1000000) {
-                        amountFormatted = (amount / 1000000).toFixed(2) + 'M';
-                    } else if (amount >= 1000) {
-                        amountFormatted = (amount / 1000).toFixed(2) + 'K';
-                    } else {
-                        amountFormatted = amount.toFixed(2);
-                    }
-                    
-                    const item = document.createElement('div');
-                    item.className = 'holder-item';
-                    item.innerHTML = `
-                        <span class="holder-rank">#${i}</span>
-                        <span class="holder-address" title="${account.address}">${account.address.slice(0, 6)}...${account.address.slice(-4)}</span>
-                        <span class="holder-balance">${amountFormatted} 404</span>
-                        <span class="holder-amount">${percentage}%</span>
-                    `;
-                    item.style.cursor = 'pointer';
-                    item.onclick = () => window.open(`https://explorer.mainnet.x1.xyz/address/${account.address}`, '_blank');
-                    holderList.appendChild(item);
+    holdersEl.textContent = 'Loading...';
+    holderList.innerHTML = '<div class="loading-more">Discovering token accounts...</div>';
+
+    try {
+        // Step 1: Get ALL token accounts for this mint using getProgramAccounts
+        // This is how you discover every account holding this token
+        const TOKEN_PROGRAM_2022 = 'TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb';
+        const TOKEN_PROGRAM_LEGACY = 'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA';
+
+        let allAccounts = [];
+
+        // Try Token-2022 program first (404 uses Token-2022 based on immutable metadata)
+        for (const programId of [TOKEN_PROGRAM_2022, TOKEN_PROGRAM_LEGACY]) {
+            try {
+                const res = await fetch(X1_RPC, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        jsonrpc: '2.0',
+                        id: 1,
+                        method: 'getProgramAccounts',
+                        params: [
+                            programId,
+                            {
+                                encoding: 'jsonParsed',
+                                filters: [
+                                    { dataSize: 165 },
+                                    { memcmp: { offset: 0, bytes: TOKEN_CA } }
+                                ]
+                            }
+                        ]
+                    })
+                });
+                const data = await res.json();
+                console.log(`getProgramAccounts (${programId.slice(0,8)}...) returned:`, data.result ? data.result.length : 0, 'accounts');
+                if (data.result && data.result.length > 0) {
+                    allAccounts = allAccounts.concat(data.result);
                 }
-                
-                console.log(`Displayed ${accounts.length - 1} holders`);
+            } catch (e) {
+                console.log(`getProgramAccounts failed for ${programId.slice(0,8)}:`, e.message);
             }
-            
-            return accounts.length;
-        } else {
-            document.getElementById('holders').textContent = 'No holders';
-            document.getElementById('holderList').innerHTML = '<div class="loading-more">No holder data</div>';
         }
+
+        // If getProgramAccounts returned nothing (some RPCs block it), fall back to getTokenLargestAccounts
+        if (allAccounts.length === 0) {
+            console.log('getProgramAccounts returned nothing, falling back to getTokenLargestAccounts...');
+            holderList.innerHTML = '<div class="loading-more">Fetching top holders...</div>';
+
+            const res = await fetch(X1_RPC, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    jsonrpc: '2.0',
+                    id: 1,
+                    method: 'getTokenLargestAccounts',
+                    params: [TOKEN_CA, { commitment: 'confirmed', limit: 500 }]
+                })
+            });
+            const data = await res.json();
+            console.log('getTokenLargestAccounts returned:', data.result ? data.result.value.length : 0);
+
+            if (data.result && data.result.value && data.result.value.length > 0) {
+                // Already parsed — render directly
+                renderHolders(data.result.value.map(acc => ({
+                    address: acc.address,
+                    amount: acc.amount,
+                    uiAmount: acc.uiAmount
+                })));
+                return data.result.value.length;
+            }
+            holdersEl.textContent = 'No holders found';
+            holderList.innerHTML = '<div class="loading-more">No holder data</div>';
+            return 0;
+        }
+
+        // Step 2: We have account addresses from getProgramAccounts — extract balances
+        // getProgramAccounts with jsonParsed already gives us the parsed data inline
+        const holders = [];
+        for (const acc of allAccounts) {
+            try {
+                const parsed = acc.account.data.parsed;
+                if (parsed && parsed.info && parsed.info.tokenAmount) {
+                    const amount = parsed.info.tokenAmount.amount;
+                    const uiAmount = parsed.info.tokenAmount.uiAmount;
+                    if (uiAmount > 0) {
+                        holders.push({
+                            address: acc.pubkey,
+                            amount: amount,
+                            uiAmount: uiAmount,
+                            owner: parsed.info.owner
+                        });
+                    }
+                }
+            } catch (e) {
+                // skip malformed
+            }
+        }
+
+        // Sort descending by amount
+        holders.sort((a, b) => parseFloat(b.amount) - parseFloat(a.amount));
+        console.log('Total holders with balance > 0:', holders.length);
+
+        renderHolders(holders);
+        return holders.length;
+
     } catch (error) {
         console.error('Error fetching holders:', error);
-        document.getElementById('holders').textContent = 'Error';
-        document.getElementById('holderList').innerHTML = '<div class="loading-more">Error loading holders</div>';
+        holdersEl.textContent = 'Error';
+        holderList.innerHTML = '<div class="loading-more">Error loading holders</div>';
     }
     return 0;
 }
 
-// Remove the slow getTokenAccountOwner function - not needed anymore
+// Render holder list into the DOM
+function renderHolders(holders) {
+    const holdersEl = document.getElementById('holders');
+    const holderList = document.getElementById('holderList');
+
+    // Total supply for percentage calc
+    const totalSupply = holders.reduce((sum, h) => sum + parseFloat(h.amount), 0);
+
+    holdersEl.textContent = `${holders.length} holders`;
+    holderList.innerHTML = '';
+
+    holders.forEach((holder, index) => {
+        const amount = parseFloat(holder.amount) / Math.pow(10, tokenDecimals);
+        const percentage = totalSupply > 0
+            ? (parseFloat(holder.amount) / totalSupply * 100).toFixed(2)
+            : '0.00';
+
+        // Format amount (33.17K style)
+        let amountFormatted;
+        if (amount >= 1000000) {
+            amountFormatted = (amount / 1000000).toFixed(2) + 'M';
+        } else if (amount >= 1000) {
+            amountFormatted = (amount / 1000).toFixed(2) + 'K';
+        } else {
+            amountFormatted = amount.toFixed(2);
+        }
+
+        const item = document.createElement('div');
+        item.className = 'holder-item';
+        // Use owner address if available (from getProgramAccounts), else the account address
+        const displayAddr = holder.owner || holder.address;
+        item.innerHTML = `
+            <span class="holder-rank">#${index + 1}</span>
+            <span class="holder-address" title="${displayAddr}">${displayAddr.slice(0, 6)}...${displayAddr.slice(-4)}</span>
+            <span class="holder-balance">${amountFormatted} 404</span>
+            <span class="holder-amount">${percentage}%</span>
+        `;
+        item.style.cursor = 'pointer';
+        item.onclick = () => window.open(`https://explorer.mainnet.x1.xyz/address/${displayAddr}`, '_blank');
+        holderList.appendChild(item);
+    });
+}
 
 // Fetch and Parse Detailed Transactions
 async function fetchDetailedTransactions() {
@@ -637,19 +716,30 @@ async function fetchTransactionDetail(signature) {
     return null;
 }
 
-// Calculate Market Cap
+let cachedSupply = null;
+
+// Calculate Market Cap = price × total supply
 async function calculateMarketCap() {
     try {
-        const supply = await fetchTokenSupply();
-        
-        if (currentPrice && supply) {
-            const marketCap = currentPrice * supply;
-            const formatted = marketCap >= 1000000 
-                ? `${(marketCap / 1000000).toFixed(2)}M`
-                : marketCap >= 1000
-                ? `${(marketCap / 1000).toFixed(2)}K`
-                : marketCap.toFixed(2);
-            
+        // Only fetch supply if we don't have it cached yet
+        if (!cachedSupply) {
+            cachedSupply = await fetchTokenSupply();
+        }
+
+        console.log('MarketCap calc — currentPrice:', currentPrice, '| cachedSupply:', cachedSupply, '| product:', currentPrice && cachedSupply ? currentPrice * cachedSupply : 'N/A');
+
+        if (currentPrice && cachedSupply) {
+            const marketCap = currentPrice * cachedSupply;
+            let formatted;
+            if (marketCap >= 1000000) {
+                formatted = `${(marketCap / 1000000).toFixed(2)}M`;
+            } else if (marketCap >= 1000) {
+                formatted = `${(marketCap / 1000).toFixed(2)}K`;
+            } else if (marketCap >= 1) {
+                formatted = marketCap.toFixed(2);
+            } else {
+                formatted = marketCap.toFixed(6);
+            }
             document.getElementById('marketCap').textContent = `${formatted} XNT`;
         } else {
             document.getElementById('marketCap').textContent = 'Calculating...';
