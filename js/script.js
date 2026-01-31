@@ -312,7 +312,7 @@ async function fetchTokenPrice() {
             body: JSON.stringify({
                 network: 'X1 Mainnet',
                 wallet: '11111111111111111111111111111111',
-                token_in: WXNT_ADDRESS, // So11111... (correct wrapped XNT)
+                token_in: WXNT_ADDRESS,
                 token_out: TOKEN_CA,
                 token_in_amount: 1,
                 is_exact_amount_in: true
@@ -321,20 +321,20 @@ async function fetchTokenPrice() {
         const data = await res.json();
         console.log('Direct xDEX raw:', data);
 
-        // xDEX returns how many 404 tokens you get for 1 XNT
-        let outputAmount = data.estimatedOutputAmount || data.output_amount
+        // xDEX returns output in SMALLEST UNITS (raw lamports), not human-readable
+        let rawOutput = data.estimatedOutputAmount || data.output_amount
             || (data.data && (data.data.estimatedOutputAmount || data.data.output_amount))
             || data.result || null;
 
-        if (outputAmount) {
-            outputAmount = parseFloat(outputAmount);
-            if (outputAmount > 0) {
-                // Price per token = 1 XNT / outputAmount tokens
-                currentPrice = 1 / outputAmount;
-                priceEl.textContent = `${currentPrice.toFixed(8)} XNT`;
-                console.log('Price via direct xDEX: 1 XNT buys', outputAmount, '404 → price =', currentPrice);
-                return currentPrice;
-            }
+        if (rawOutput) {
+            const rawNum = parseFloat(rawOutput);
+            // Convert to human-readable: divide by 10^decimals
+            const humanOutput = rawNum / Math.pow(10, tokenDecimals);
+            // Price = 1 XNT / humanOutput tokens
+            currentPrice = 1 / humanOutput;
+            priceEl.textContent = `${currentPrice.toFixed(8)} XNT`;
+            console.log(`Direct xDEX: raw=${rawNum} decimals=${tokenDecimals} human=${humanOutput} price=${currentPrice}`);
+            return currentPrice;
         }
     } catch (e) {
         console.log('Direct xDEX failed (CORS?):', e.message);
@@ -770,10 +770,14 @@ async function initializeTokenData() {
     console.log('Initializing token data...');
     
     try {
-        // Fetch price first
+        // Fetch supply FIRST — this sets tokenDecimals which price calculation needs
+        cachedSupply = await fetchTokenSupply();
+        console.log('Supply fetched:', cachedSupply, '| decimals:', tokenDecimals);
+
+        // Now fetch price (Attempt 2 uses tokenDecimals)
         await fetchTokenPrice();
         
-        // Then calculate market cap
+        // Then calculate market cap (needs both price + supply)
         await calculateMarketCap();
         
         // Fetch holders
@@ -797,6 +801,25 @@ if (document.getElementById('priceXNT')) {
         await calculateMarketCap();
     }, 30000);
 }
+
+// Feed tab switching (Transactions ↔ Holders)
+document.querySelectorAll('.feed-tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+        const target = tab.getAttribute('data-feed');
+
+        // Update tab buttons
+        document.querySelectorAll('.feed-tab').forEach(t => t.classList.remove('active'));
+        tab.classList.add('active');
+
+        // Update panels
+        document.querySelectorAll('.feed-panel').forEach(p => p.classList.remove('active'));
+        if (target === 'transactions') {
+            document.getElementById('feedTransactions').classList.add('active');
+        } else if (target === 'holders') {
+            document.getElementById('feedHolders').classList.add('active');
+        }
+    });
+});
 
 // TradingView Chart Integration
 function initTradingViewChart() {
