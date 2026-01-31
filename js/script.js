@@ -246,3 +246,65 @@ checkAuth();
 if (document.getElementById('matrixBg')) {
     createMatrixEffect();
 }
+
+// Contract Address Copy Functionality
+const copyBtn = document.getElementById('copyBtn');
+const caAddress = document.getElementById('caAddress');
+const copyIcon = document.getElementById('copyIcon');
+
+if (copyBtn && caAddress) {
+    copyBtn.addEventListener('click', async () => {
+        try {
+            await navigator.clipboard.writeText(caAddress.textContent);
+            copyIcon.textContent = '✅';
+            setTimeout(() => {
+                copyIcon.textContent = '📋';
+            }, 2000);
+        } catch (err) {
+            // Fallback for older browsers
+            const textArea = document.createElement('textarea');
+            textArea.value = caAddress.textContent;
+            document.body.appendChild(textArea);
+            textArea.select();
+            document.execCommand('copy');
+            document.body.removeChild(textArea);
+            copyIcon.textContent = '✅';
+            setTimeout(() => {
+                copyIcon.textContent = '📋';
+            }, 2000);
+        }
+    });
+}
+
+// Fetch Token Data (placeholder - replace with actual API)
+async function fetchTokenData() {
+    try {
+        // TODO: Replace with actual API endpoint
+        // const response = await fetch('https://api.x1.xyz/token/4o4UheANLdqF4gSV4zWTbCTCercQNSaTm6nVcDetzPb2');
+        // const data = await response.json();
+        
+        // Placeholder data
+        const data = {
+            priceXNT: '0.000234',
+            holders: '1,234',
+            marketCap: '123,456'
+        };
+        
+        // Update UI
+        document.getElementById('priceXNT').textContent = `${data.priceXNT} XNT`;
+        document.getElementById('holders').textContent = data.holders;
+        document.getElementById('marketCap').textContent = `${data.marketCap} XNT`;
+    } catch (error) {
+        console.error('Error fetching token data:', error);
+        document.getElementById('priceXNT').textContent = 'N/A';
+        document.getElementById('holders').textContent = 'N/A';
+        document.getElementById('marketCap').textContent = 'N/A';
+    }
+}
+
+// Fetch token data on page load
+if (document.getElementById('priceXNT')) {
+    fetchTokenData();
+    // Refresh every 30 seconds
+    setInterval(fetchTokenData, 30000);
+}
