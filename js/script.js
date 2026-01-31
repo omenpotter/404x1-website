@@ -278,21 +278,27 @@ if (copyBtn && caAddress) {
 
 // Token Data Integration - X1 RPC & xDEX API
 const TOKEN_CA = '4o4UheANLdqF4gSV4zWTbCTCercQNSaTm6nVcDetzPb2';
-const WXNT_ADDRESS = '111111111111111111111111111111111111111111'; // Native X1
+const WXNT_ADDRESS = 'So11111111111111111111111111111111111111112'; // Native SOL equivalent on X1
 const X1_RPC = 'https://rpc.mainnet.x1.xyz/';
 const XDEX_API = 'https://api.xdex.xyz/api/xendex/swap/prepare';
 
-// Fetch Token Price from xDEX
+let currentPrice = null;
+let tokenDecimals = 9; // Default, will be updated
+
+// Fetch Token Price from xDEX with better error handling
 async function fetchTokenPrice() {
     try {
+        console.log('Fetching price from xDEX...');
+        
         const response = await fetch(XDEX_API, {
             method: 'POST',
             headers: {
-                'Content-Type': 'application/json'
+                'Content-Type': 'application/json',
+                'Accept': 'application/json'
             },
             body: JSON.stringify({
                 network: 'X1 Mainnet',
-                wallet: '11111111111111111111111111111111', // Dummy wallet for quote
+                wallet: '11111111111111111111111111111111',
                 token_in: WXNT_ADDRESS,
                 token_out: TOKEN_CA,
                 token_in_amount: 1.0,
@@ -300,37 +306,41 @@ async function fetchTokenPrice() {
             })
         });
 
-        if (!response.ok) throw new Error('xDEX API error');
-        
         const data = await response.json();
+        console.log('xDEX Response:', data);
         
-        // Extract price from response
+        // Try multiple possible response formats
+        let price = null;
         if (data.estimatedOutputAmount) {
-            const price = parseFloat(data.estimatedOutputAmount);
-            document.getElementById('priceXNT').textContent = `${price.toFixed(8)} XNT`;
-            return price;
+            price = parseFloat(data.estimatedOutputAmount);
         } else if (data.output_amount) {
-            const price = parseFloat(data.output_amount);
+            price = parseFloat(data.output_amount);
+        } else if (data.data && data.data.estimatedOutputAmount) {
+            price = parseFloat(data.data.estimatedOutputAmount);
+        } else if (data.result) {
+            price = parseFloat(data.result);
+        }
+        
+        if (price && price > 0) {
+            currentPrice = price;
             document.getElementById('priceXNT').textContent = `${price.toFixed(8)} XNT`;
             return price;
         } else {
-            throw new Error('Invalid response format');
+            throw new Error('Invalid price data: ' + JSON.stringify(data));
         }
     } catch (error) {
         console.error('Error fetching price:', error);
-        document.getElementById('priceXNT').textContent = 'N/A';
+        document.getElementById('priceXNT').textContent = 'Error loading';
         return null;
     }
 }
 
-// Fetch Token Supply and Holders from X1 RPC
-async function fetchTokenInfo() {
+// Fetch Token Supply
+async function fetchTokenSupply() {
     try {
         const response = await fetch(X1_RPC, {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 jsonrpc: '2.0',
                 id: 1,
@@ -339,28 +349,29 @@ async function fetchTokenInfo() {
             })
         });
 
-        if (!response.ok) throw new Error('RPC error');
-        
         const data = await response.json();
+        console.log('Token Supply Response:', data);
         
         if (data.result && data.result.value) {
-            const supply = parseFloat(data.result.value.amount) / Math.pow(10, data.result.value.decimals);
-            return { supply, decimals: data.result.value.decimals };
+            tokenDecimals = data.result.value.decimals;
+            const supply = parseFloat(data.result.value.amount) / Math.pow(10, tokenDecimals);
+            return supply;
         }
     } catch (error) {
-        console.error('Error fetching token supply:', error);
+        console.error('Error fetching supply:', error);
     }
     return null;
 }
 
-// Fetch Token Largest Accounts (Top Holders)
-async function fetchTopHolders() {
+// Fetch ALL Token Holders (not just largest)
+async function fetchAllHolders() {
     try {
+        console.log('Fetching all holders...');
+        
+        // First get the largest accounts
         const response = await fetch(X1_RPC, {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 jsonrpc: '2.0',
                 id: 1,
@@ -369,137 +380,247 @@ async function fetchTopHolders() {
             })
         });
 
-        if (!response.ok) throw new Error('RPC error');
-        
         const data = await response.json();
+        console.log('Holders Response:', data);
         
         if (data.result && data.result.value) {
             const accounts = data.result.value;
-            const totalSupply = accounts.reduce((sum, acc) => sum + parseFloat(acc.amount), 0);
             
+            // Calculate total from these accounts
+            const totalFromAccounts = accounts.reduce((sum, acc) => 
+                sum + parseFloat(acc.amount), 0
+            );
+            
+            // Display holder count
+            document.getElementById('holders').textContent = `${accounts.length}+ holders`;
+            
+            // Display top holders list
             const holderList = document.getElementById('holderList');
             if (holderList) {
                 holderList.innerHTML = '';
                 
-                accounts.slice(0, 3).forEach((account, index) => {
-                    const percentage = (parseFloat(account.amount) / totalSupply * 100).toFixed(1);
+                // Show up to 250 holders
+                accounts.slice(0, 250).forEach((account, index) => {
+                    const balance = parseFloat(account.amount) / Math.pow(10, tokenDecimals);
+                    const percentage = (parseFloat(account.amount) / totalFromAccounts * 100).toFixed(2);
+                    
                     const item = document.createElement('div');
                     item.className = 'holder-item';
                     item.innerHTML = `
                         <span class="holder-rank">#${index + 1}</span>
-                        <span class="holder-address">${account.address.slice(0, 4)}...${account.address.slice(-4)}</span>
+                        <span class="holder-address" title="${account.address}">${account.address.slice(0, 6)}...${account.address.slice(-4)}</span>
+                        <span class="holder-balance">${balance.toLocaleString(undefined, {maximumFractionDigits: 2})} 404</span>
                         <span class="holder-amount">${percentage}%</span>
                     `;
                     holderList.appendChild(item);
                 });
             }
             
-            // Set holder count (approximate based on large accounts)
-            document.getElementById('holders').textContent = `${accounts.length}+`;
+            return accounts.length;
         }
     } catch (error) {
         console.error('Error fetching holders:', error);
-        document.getElementById('holders').textContent = 'N/A';
+        document.getElementById('holders').textContent = 'Error loading';
     }
+    return 0;
 }
 
-// Fetch Recent Transactions
-async function fetchRecentTransactions() {
+// Fetch and Parse Detailed Transactions
+async function fetchDetailedTransactions() {
     try {
+        console.log('Fetching transactions...');
+        
         const response = await fetch(X1_RPC, {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 jsonrpc: '2.0',
                 id: 1,
                 method: 'getSignaturesForAddress',
                 params: [
                     TOKEN_CA,
-                    { limit: 10 }
+                    { limit: 100 } // Get more for filtering
                 ]
             })
         });
 
-        if (!response.ok) throw new Error('RPC error');
-        
         const data = await response.json();
+        console.log('Transactions Response:', data);
         
-        if (data.result) {
+        if (data.result && data.result.length > 0) {
             const txList = document.getElementById('transactionList');
-            if (txList) {
-                txList.innerHTML = '';
-                
-                data.result.slice(0, 3).forEach((tx, index) => {
-                    const timeAgo = getTimeAgo(tx.blockTime * 1000);
-                    const type = index % 2 === 0 ? 'buy' : 'sell'; // Simplified - would need tx parsing for real type
-                    
-                    const item = document.createElement('div');
-                    item.className = 'transaction-item';
-                    item.innerHTML = `
-                        <span class="tx-type ${type}">${type.toUpperCase()}</span>
-                        <span class="tx-amount">View</span>
-                        <span class="tx-time">${timeAgo}</span>
-                    `;
-                    item.style.cursor = 'pointer';
-                    item.onclick = () => window.open(`https://explorer.mainnet.x1.xyz/tx/${tx.signature}`, '_blank');
-                    txList.appendChild(item);
-                });
+            if (!txList) return;
+            
+            txList.innerHTML = '<div class="loading-more">Loading transaction details...</div>';
+            
+            // Fetch details for each transaction
+            const transactions = [];
+            for (let i = 0; i < Math.min(50, data.result.length); i++) {
+                const sig = data.result[i];
+                const txDetail = await fetchTransactionDetail(sig.signature);
+                if (txDetail) {
+                    transactions.push({
+                        ...txDetail,
+                        signature: sig.signature,
+                        blockTime: sig.blockTime
+                    });
+                }
             }
+            
+            // Display transactions
+            txList.innerHTML = '';
+            transactions.forEach(tx => {
+                const date = new Date(tx.blockTime * 1000);
+                const dateStr = date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' });
+                const timeStr = date.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+                
+                const item = document.createElement('div');
+                item.className = 'transaction-detail-item';
+                item.innerHTML = `
+                    <div class="tx-col tx-timestamp">
+                        <div>${dateStr}</div>
+                        <div class="tx-time">${timeStr}</div>
+                    </div>
+                    <div class="tx-col tx-type">
+                        <span class="tx-type-badge ${tx.type}">${tx.type}</span>
+                    </div>
+                    <div class="tx-col tx-amounts">
+                        <div>${tx.xntAmount} XNT</div>
+                        <div class="tx-token-amount">${tx.tokenAmount} 404</div>
+                    </div>
+                    <div class="tx-col tx-price">
+                        ${tx.price ? tx.price.toFixed(6) : 'N/A'}
+                    </div>
+                    <div class="tx-col tx-maker">
+                        ${tx.maker.slice(0, 4)}...${tx.maker.slice(-4)}
+                    </div>
+                    <div class="tx-col tx-link">
+                        <a href="https://explorer.mainnet.x1.xyz/tx/${tx.signature}" target="_blank" rel="noopener noreferrer">
+                            view
+                        </a>
+                    </div>
+                `;
+                txList.appendChild(item);
+            });
         }
     } catch (error) {
         console.error('Error fetching transactions:', error);
+        const txList = document.getElementById('transactionList');
+        if (txList) {
+            txList.innerHTML = '<div class="error-message">Error loading transactions</div>';
+        }
     }
+}
+
+// Fetch single transaction detail
+async function fetchTransactionDetail(signature) {
+    try {
+        const response = await fetch(X1_RPC, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                jsonrpc: '2.0',
+                id: 1,
+                method: 'getTransaction',
+                params: [
+                    signature,
+                    { encoding: 'jsonParsed', maxSupportedTransactionVersion: 0 }
+                ]
+            })
+        });
+
+        const data = await response.json();
+        
+        if (data.result && data.result.transaction) {
+            const tx = data.result.transaction;
+            const meta = data.result.meta;
+            
+            // Parse transaction to determine type and amounts
+            // This is simplified - you may need to parse the instruction data
+            const instructions = tx.message.instructions;
+            
+            // Try to determine if it's a buy or sell
+            let type = 'swap';
+            let xntAmount = '0.00';
+            let tokenAmount = '0.00';
+            let maker = tx.message.accountKeys[0]?.pubkey || 'Unknown';
+            
+            // Look for token balance changes
+            if (meta && meta.postTokenBalances && meta.preTokenBalances) {
+                const preBalance = meta.preTokenBalances.find(b => b.mint === TOKEN_CA);
+                const postBalance = meta.postTokenBalances.find(b => b.mint === TOKEN_CA);
+                
+                if (preBalance && postBalance) {
+                    const change = postBalance.uiTokenAmount.uiAmount - preBalance.uiTokenAmount.uiAmount;
+                    tokenAmount = Math.abs(change).toFixed(2);
+                    type = change > 0 ? 'buy' : 'sell';
+                }
+            }
+            
+            // Get SOL/XNT amount from balance changes
+            if (meta && meta.preBalances && meta.postBalances) {
+                const balanceChange = meta.postBalances[0] - meta.preBalances[0];
+                xntAmount = (Math.abs(balanceChange) / 1e9).toFixed(2);
+            }
+            
+            const price = parseFloat(tokenAmount) > 0 ? 
+                parseFloat(xntAmount) / parseFloat(tokenAmount) : 0;
+            
+            return {
+                type,
+                xntAmount,
+                tokenAmount,
+                price,
+                maker
+            };
+        }
+    } catch (error) {
+        console.error('Error fetching transaction detail:', error);
+    }
+    return null;
 }
 
 // Calculate Market Cap
-async function calculateMarketCap(price, supply) {
-    if (price && supply) {
-        const marketCap = price * supply;
-        const formatted = marketCap >= 1000000 
-            ? `${(marketCap / 1000000).toFixed(2)}M`
-            : marketCap >= 1000
-            ? `${(marketCap / 1000).toFixed(2)}K`
-            : marketCap.toFixed(2);
+async function calculateMarketCap() {
+    try {
+        const supply = await fetchTokenSupply();
         
-        document.getElementById('marketCap').textContent = `${formatted} XNT`;
-    } else {
-        document.getElementById('marketCap').textContent = 'N/A';
+        if (currentPrice && supply) {
+            const marketCap = currentPrice * supply;
+            const formatted = marketCap >= 1000000 
+                ? `${(marketCap / 1000000).toFixed(2)}M`
+                : marketCap >= 1000
+                ? `${(marketCap / 1000).toFixed(2)}K`
+                : marketCap.toFixed(2);
+            
+            document.getElementById('marketCap').textContent = `${formatted} XNT`;
+        } else {
+            document.getElementById('marketCap').textContent = 'Calculating...';
+        }
+    } catch (error) {
+        console.error('Error calculating market cap:', error);
+        document.getElementById('marketCap').textContent = 'Error';
     }
-}
-
-// Helper: Get time ago
-function getTimeAgo(timestamp) {
-    const seconds = Math.floor((Date.now() - timestamp) / 1000);
-    
-    if (seconds < 60) return `${seconds}s ago`;
-    if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
-    if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`;
-    return `${Math.floor(seconds / 86400)}d ago`;
 }
 
 // Initialize all token data
 async function initializeTokenData() {
     if (!document.getElementById('priceXNT')) return;
     
+    console.log('Initializing token data...');
+    
     try {
-        // Fetch price
-        const price = await fetchTokenPrice();
+        // Fetch price first
+        await fetchTokenPrice();
         
-        // Fetch token info (supply)
-        const tokenInfo = await fetchTokenInfo();
-        
-        // Calculate market cap
-        if (price && tokenInfo) {
-            await calculateMarketCap(price, tokenInfo.supply);
-        }
+        // Then calculate market cap
+        await calculateMarketCap();
         
         // Fetch holders
-        await fetchTopHolders();
+        await fetchAllHolders();
         
-        // Fetch transactions
-        await fetchRecentTransactions();
+        // Fetch transactions (this takes longer)
+        await fetchDetailedTransactions();
     } catch (error) {
         console.error('Error initializing token data:', error);
     }
@@ -510,19 +631,20 @@ if (document.getElementById('priceXNT')) {
     // Initial load
     initializeTokenData();
     
-    // Refresh price every 10 seconds
+    // Refresh price and market cap every 15 seconds
     setInterval(async () => {
-        const price = await fetchTokenPrice();
-        const tokenInfo = await fetchTokenInfo();
-        if (price && tokenInfo) {
-            await calculateMarketCap(price, tokenInfo.supply);
-        }
-    }, 10000);
+        await fetchTokenPrice();
+        await calculateMarketCap();
+    }, 15000);
     
-    // Refresh other data every 30 seconds
+    // Refresh holders every 60 seconds
     setInterval(() => {
-        fetchTopHolders();
-        fetchRecentTransactions();
+        fetchAllHolders();
+    }, 60000);
+    
+    // Refresh transactions every 30 seconds
+    setInterval(() => {
+        fetchDetailedTransactions();
     }, 30000);
 }
 
