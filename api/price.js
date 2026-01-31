@@ -1,6 +1,41 @@
 // Vercel Serverless Function - Proxy for xDEX API
 // Bypasses CORS by making the request server-side
 
+// Deep-scan an object for the first numeric value in a plausible token-output range
+// xDEX has changed field names before — this finds it regardless of nesting/naming
+function findOutputAmount(obj, depth = 0) {
+    if (depth > 4) return null; // don't recurse too deep
+    if (obj == null) return null;
+
+    // If it's a number directly in plausible range (10–999999 tokens output for 1 XNT)
+    if (typeof obj === 'number' && obj >= 10 && obj <= 999999) return obj;
+    // String that parses to a number in range
+    if (typeof obj === 'string') {
+        const n = parseFloat(obj);
+        if (!isNaN(n) && n >= 10 && n <= 999999) return n;
+    }
+
+    if (typeof obj !== 'object') return null;
+
+    // Priority field names to check first
+    const priorityKeys = ['estimatedOutputAmount', 'output_amount', 'outputAmount', 'estimated_output_amount', 'result', 'amount', 'out'];
+    for (const key of priorityKeys) {
+        if (obj[key] != null) {
+            const val = typeof obj[key] === 'object' ? findOutputAmount(obj[key], depth + 1) : findOutputAmount(obj[key], depth);
+            if (val != null) return val;
+        }
+    }
+
+    // Then scan all other keys
+    for (const key of Object.keys(obj)) {
+        if (priorityKeys.includes(key)) continue;
+        const val = findOutputAmount(obj[key], depth + 1);
+        if (val != null) return val;
+    }
+
+    return null;
+}
+
 export default async function handler(req, res) {
     res.setHeader('Access-Control-Allow-Credentials', true);
     res.setHeader('Access-Control-Allow-Origin', '*');
@@ -16,7 +51,6 @@ export default async function handler(req, res) {
         const TOKEN_CA = '4o4UheANLdqF4gSV4zWTbCTCercQNSaTm6nVcDetzPb2';
         const WXNT_ADDRESS = 'So11111111111111111111111111111111111111112';
 
-        // Ask xDEX: "If I put in 1 XNT, how many 404 tokens do I get out?"
         const response = await fetch('https://api.xdex.xyz/api/xendex/swap/prepare', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
@@ -31,25 +65,14 @@ export default async function handler(req, res) {
         });
 
         const data = await response.json();
-        console.log('xDEX raw response:', JSON.stringify(data));
+        console.log('xDEX raw:', JSON.stringify(data));
 
-        // xDEX returns estimatedOutputAmount already human-readable
-        // e.g. 518.88 means 1 XNT buys 518.88 tokens
-        let outputAmount = null;
-        if (data.estimatedOutputAmount) outputAmount = data.estimatedOutputAmount;
-        else if (data.output_amount) outputAmount = data.output_amount;
-        else if (data.data && data.data.estimatedOutputAmount) outputAmount = data.data.estimatedOutputAmount;
-        else if (data.data && data.data.output_amount) outputAmount = data.data.output_amount;
-        else if (data.result) outputAmount = data.result;
+        // Deep-scan the response for the output amount — works regardless of field names
+        const outputNum = findOutputAmount(data);
 
-        if (outputAmount && parseFloat(outputAmount) > 0) {
-            const outputNum = parseFloat(outputAmount);
-            // Price per token = 1 XNT / outputNum tokens
-            // e.g. 1 / 518.88 = 0.00192727 XNT per token
+        if (outputNum && outputNum > 0) {
             const pricePerToken = 1 / outputNum;
-
-            console.log(`outputAmount=${outputNum} | price=${pricePerToken}`);
-
+            console.log(`Found outputAmount=${outputNum} | price=${pricePerToken}`);
             res.status(200).json({
                 success: true,
                 price: pricePerToken,
@@ -57,7 +80,8 @@ export default async function handler(req, res) {
                 raw: data
             });
         } else {
-            res.status(200).json({ success: false, error: 'No output amount in response', raw: data });
+            // Return raw so frontend can log and debug
+            res.status(200).json({ success: false, error: 'Could not find output amount', raw: data });
         }
     } catch (error) {
         console.error('xDEX API Error:', error);
