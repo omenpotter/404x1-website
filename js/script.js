@@ -294,18 +294,24 @@ async function fetchTokenPrice() {
         const res = await fetch('/api/price');
         if (res.ok) {
             const data = await res.json();
-            console.log('Proxy response:', data);
+            console.log('Proxy response:', JSON.stringify(data));
             if (data.success && data.price && data.price > 0) {
                 currentPrice = data.price;
                 priceEl.textContent = `${currentPrice.toFixed(6)} XNT`;
                 return currentPrice;
             }
+            // Proxy reached xDEX but couldn't parse — log raw for debugging
+            if (data.raw) {
+                console.warn('Proxy could not find output amount. xDEX raw:', JSON.stringify(data.raw));
+            }
+        } else {
+            console.log('Proxy returned HTTP', res.status, '— not deployed?');
         }
     } catch (e) {
-        console.log('Proxy unavailable, trying direct xDEX...');
+        console.log('Proxy fetch failed:', e.message);
     }
 
-    // --- Attempt 2: Direct xDEX API ---
+    // --- Attempt 2: Direct xDEX API (will fail with CORS in browser, but try anyway) ---
     try {
         const res = await fetch('https://api.xdex.xyz/api/xendex/swap/prepare', {
             method: 'POST',
@@ -320,13 +326,24 @@ async function fetchTokenPrice() {
             })
         });
         const data = await res.json();
-        console.log('Direct xDEX raw:', data);
+        console.log('Direct xDEX raw:', JSON.stringify(data));
 
-        // xDEX returns estimatedOutputAmount in HUMAN-READABLE form already
-        // e.g. 518.88 → price = 1/518.88 = 0.001927 XNT
+        // Same deep-scan logic as proxy: try known fields, then any numeric in range
         let outputAmount = data.estimatedOutputAmount || data.output_amount
             || (data.data && (data.data.estimatedOutputAmount || data.data.output_amount))
             || data.result || null;
+
+        // If named fields didn't work, scan for any number in plausible range
+        if (!outputAmount) {
+            const scan = (obj, depth = 0) => {
+                if (depth > 4 || obj == null) return null;
+                if (typeof obj === 'number' && obj >= 10 && obj <= 999999) return obj;
+                if (typeof obj === 'string') { const n = parseFloat(obj); if (!isNaN(n) && n >= 10 && n <= 999999) return n; }
+                if (typeof obj === 'object') { for (const v of Object.values(obj)) { const r = scan(v, depth+1); if (r) return r; } }
+                return null;
+            };
+            outputAmount = scan(data);
+        }
 
         if (outputAmount) {
             outputAmount = parseFloat(outputAmount);
@@ -338,7 +355,7 @@ async function fetchTokenPrice() {
             }
         }
     } catch (e) {
-        console.log('Direct xDEX failed:', e.message);
+        console.log('Direct xDEX failed (expected CORS):', e.message);
     }
 
     // Both failed — show cached or fallback
@@ -346,6 +363,7 @@ async function fetchTokenPrice() {
         priceEl.textContent = `${currentPrice.toFixed(6)} XNT`;
     } else {
         priceEl.textContent = 'Check xDEX';
+        console.warn('Price fetch failed completely. Make sure /api/price.js is deployed to Vercel.');
     }
     return currentPrice;
 }
@@ -699,14 +717,30 @@ async function fetchTransactionDetail(signature) {
         }
 
         // --- XNT amount: find wrapped XNT (So111...112) balance changes ---
+        // Must scan BOTH post and pre, because:
+        //   BUY:  pool's WXNT increases  → shows up in post  
+        //   SELL: pool's WXNT decreases  → account may only appear in pre (if zeroed/closed)
         let xntAmount = 0;
+
+        // Pass 1: accounts present in post (covers increases AND decreases where account survives)
         meta.postTokenBalances.forEach(postB => {
             if (postB.mint !== WXNT_ADDRESS) return;
             const preB = meta.preTokenBalances.find(p => p.accountIndex === postB.accountIndex && p.mint === WXNT_ADDRESS);
             const preAmt = preB ? getHumanAmount(preB) : 0;
             const postAmt = getHumanAmount(postB);
             const change = Math.abs(postAmt - preAmt);
-            if (change > xntAmount) xntAmount = change; // take the largest single WXNT account change
+            if (change > xntAmount) xntAmount = change;
+        });
+
+        // Pass 2: accounts that exist in pre but NOT in post (closed after full withdrawal)
+        meta.preTokenBalances.forEach(preB => {
+            if (preB.mint !== WXNT_ADDRESS) return;
+            const postB = meta.postTokenBalances.find(p => p.accountIndex === preB.accountIndex && p.mint === WXNT_ADDRESS);
+            if (!postB) {
+                // Account was closed — entire pre balance left this account
+                const amt = getHumanAmount(preB);
+                if (amt > xntAmount) xntAmount = amt;
+            }
         });
 
         // Fallback: native lamport diffs (for non-xDEX swaps)
