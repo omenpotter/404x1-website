@@ -288,40 +288,21 @@ let tokenDecimals = 9; // Default, will be updated
 // Fetch Token Price from xDEX with better error handling
 async function fetchTokenPrice() {
     try {
-        console.log('Fetching price from xDEX...');
+        console.log('Fetching price via proxy API...');
         
-        const response = await fetch(XDEX_API, {
-            method: 'POST',
+        // Use Vercel serverless function proxy to avoid CORS
+        const response = await fetch('/api/price', {
+            method: 'GET',
             headers: {
-                'Content-Type': 'application/json',
                 'Accept': 'application/json'
-            },
-            body: JSON.stringify({
-                network: 'X1 Mainnet',
-                wallet: '11111111111111111111111111111111',
-                token_in: WXNT_ADDRESS,
-                token_out: TOKEN_CA,
-                token_in_amount: 1.0,
-                is_exact_amount_in: true
-            })
+            }
         });
 
         const data = await response.json();
-        console.log('xDEX Response:', data);
+        console.log('Price API Response:', data);
         
-        // Try multiple possible response formats
-        let price = null;
-        if (data.estimatedOutputAmount) {
-            price = parseFloat(data.estimatedOutputAmount);
-        } else if (data.output_amount) {
-            price = parseFloat(data.output_amount);
-        } else if (data.data && data.data.estimatedOutputAmount) {
-            price = parseFloat(data.data.estimatedOutputAmount);
-        } else if (data.result) {
-            price = parseFloat(data.result);
-        }
-        
-        if (price && price > 0) {
+        if (data.success && data.price) {
+            const price = data.price;
             currentPrice = price;
             document.getElementById('priceXNT').textContent = `${price.toFixed(8)} XNT`;
             return price;
@@ -330,8 +311,10 @@ async function fetchTokenPrice() {
         }
     } catch (error) {
         console.error('Error fetching price:', error);
-        document.getElementById('priceXNT').textContent = 'Error loading';
-        return null;
+        document.getElementById('priceXNT').textContent = currentPrice 
+            ? `${currentPrice.toFixed(8)} XNT (cached)`
+            : 'Error loading';
+        return currentPrice; // Return cached price
     }
 }
 
