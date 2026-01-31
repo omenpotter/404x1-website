@@ -42,9 +42,9 @@ window.addEventListener('click', (e) => {
 if (connectX1Wallet) {
     connectX1Wallet.addEventListener('click', async () => {
         try {
-            if (typeof window.xfi !== 'undefined' && window.xfi.solana) {
+            if (typeof window.x1Wallet !== 'undefined') {
                 // X1 Wallet detected
-                const response = await window.xfi.solana.connect();
+                const response = await window.x1Wallet.connect();
                 walletAddress = response.publicKey.toString();
                 walletType = 'X1';
                 handleWalletConnected();
