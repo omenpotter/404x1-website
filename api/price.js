@@ -1,24 +1,23 @@
 // Vercel Serverless Function - Proxy for xDEX API
-// This bypasses CORS by making the request server-side
+// Bypasses CORS by making the request server-side
 
 export default async function handler(req, res) {
-    // Enable CORS
     res.setHeader('Access-Control-Allow-Credentials', true);
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'GET,OPTIONS,POST');
     res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-    
-    // Handle preflight
+
     if (req.method === 'OPTIONS') {
         res.status(200).end();
         return;
     }
-    
+
     try {
         const TOKEN_CA = '4o4UheANLdqF4gSV4zWTbCTCercQNSaTm6nVcDetzPb2';
-        const WXNT_ADDRESS = '111111111111111111111111111111111111111111';
-        
-        // Make request to xDEX API
+        // Correct wrapped XNT address on X1 (same format as wrapped SOL on Solana)
+        const WXNT_ADDRESS = 'So11111111111111111111111111111111111111112';
+
+        // Ask xDEX: "If I put in 1 XNT, how many 404 tokens do I get out?"
         const response = await fetch('https://api.xdex.xyz/api/xendex/swap/prepare', {
             method: 'POST',
             headers: {
@@ -34,25 +33,36 @@ export default async function handler(req, res) {
                 is_exact_amount_in: true
             })
         });
-        
+
         const data = await response.json();
-        
-        // Extract price from various possible response formats
-        let price = null;
+        console.log('xDEX raw response:', JSON.stringify(data));
+
+        // Extract how many 404 tokens come out for 1 XNT input
+        let outputAmount = null;
         if (data.estimatedOutputAmount) {
-            price = parseFloat(data.estimatedOutputAmount);
+            outputAmount = parseFloat(data.estimatedOutputAmount);
         } else if (data.output_amount) {
-            price = parseFloat(data.output_amount);
+            outputAmount = parseFloat(data.output_amount);
         } else if (data.data && data.data.estimatedOutputAmount) {
-            price = parseFloat(data.data.estimatedOutputAmount);
+            outputAmount = parseFloat(data.data.estimatedOutputAmount);
+        } else if (data.data && data.data.output_amount) {
+            outputAmount = parseFloat(data.data.output_amount);
         } else if (data.result) {
-            price = parseFloat(data.result);
+            outputAmount = parseFloat(data.result);
         }
-        
-        if (price && price > 0) {
-            res.status(200).json({ success: true, price, raw: data });
+
+        if (outputAmount && outputAmount > 0) {
+            // Price per 404 token in XNT = 1 XNT / outputAmount tokens
+            // e.g. 1 XNT buys 4000 tokens → each token = 0.00025 XNT
+            const pricePerToken = 1 / outputAmount;
+            res.status(200).json({
+                success: true,
+                price: pricePerToken,
+                outputAmount: outputAmount,
+                raw: data
+            });
         } else {
-            res.status(200).json({ success: false, error: 'Invalid price data', raw: data });
+            res.status(200).json({ success: false, error: 'No output amount in response', raw: data });
         }
     } catch (error) {
         console.error('xDEX API Error:', error);
