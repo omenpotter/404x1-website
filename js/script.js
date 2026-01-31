@@ -2,9 +2,15 @@
 const authBtn = document.getElementById('authBtn');
 const authModal = document.getElementById('authModal');
 const modalClose = document.getElementById('modalClose');
-const authTabs = document.querySelectorAll('.auth-tab');
-const loginForm = document.getElementById('loginForm');
-const signupForm = document.getElementById('signupForm');
+const connectWalletBtn = document.getElementById('connectWalletBtn');
+const usernameSetup = document.getElementById('usernameSetup');
+const confirmUsernameBtn = document.getElementById('confirmUsernameBtn');
+const chatNameInput = document.getElementById('chatNameInput');
+const gameNameInput = document.getElementById('gameNameInput');
+
+// Wallet state
+let walletAddress = null;
+let isConnected = false;
 
 // Open modal
 if (authBtn) {
@@ -28,76 +34,147 @@ window.addEventListener('click', (e) => {
     }
 });
 
-// Tab switching
-authTabs.forEach(tab => {
-    tab.addEventListener('click', () => {
-        const tabName = tab.getAttribute('data-tab');
-        
-        // Update active tab
-        authTabs.forEach(t => t.classList.remove('active'));
-        tab.classList.add('active');
-        
-        // Show corresponding form
-        if (tabName === 'login') {
-            loginForm.classList.remove('hidden');
-            signupForm.classList.add('hidden');
-        } else {
-            loginForm.classList.add('hidden');
-            signupForm.classList.remove('hidden');
+// Connect Wallet
+if (connectWalletBtn) {
+    connectWalletBtn.addEventListener('click', async () => {
+        try {
+            // Check if wallet is installed (MetaMask/any Web3 wallet)
+            if (typeof window.ethereum !== 'undefined') {
+                // Request account access
+                const accounts = await window.ethereum.request({ 
+                    method: 'eth_requestAccounts' 
+                });
+                
+                walletAddress = accounts[0];
+                isConnected = true;
+                
+                // Check if user already has username
+                const userData = localStorage.getItem(`404x1_user_${walletAddress}`);
+                
+                if (userData) {
+                    // User exists, log them in
+                    const user = JSON.parse(userData);
+                    loginUser(user);
+                } else {
+                    // New user, show username setup
+                    connectWalletBtn.style.display = 'none';
+                    usernameSetup.classList.remove('hidden');
+                }
+                
+            } else {
+                alert('Please install MetaMask or another Web3 wallet to continue!');
+            }
+        } catch (error) {
+            console.error('Wallet connection error:', error);
+            alert('Failed to connect wallet. Please try again.');
         }
-    });
-});
-
-// Form submissions (placeholder - connect to backend)
-if (loginForm) {
-    loginForm.addEventListener('submit', (e) => {
-        e.preventDefault();
-        console.log('Login submitted');
-        // Add your login logic here
-        alert('Login functionality - connect to backend');
     });
 }
 
-if (signupForm) {
-    signupForm.addEventListener('submit', (e) => {
-        e.preventDefault();
-        console.log('Signup submitted');
-        // Add your signup logic here
-        alert('Signup functionality - connect to backend');
+// Confirm Username
+if (confirmUsernameBtn) {
+    confirmUsernameBtn.addEventListener('click', () => {
+        const chatName = chatNameInput.value.trim();
+        const gameName = gameNameInput.value.trim();
+        
+        // Validate usernames
+        const usernameRegex = /^[a-zA-Z0-9_]{3,16}$/;
+        
+        if (!usernameRegex.test(chatName)) {
+            alert('Chat name must be 3-16 characters (letters, numbers, underscore only)');
+            return;
+        }
+        
+        if (!usernameRegex.test(gameName)) {
+            alert('Game name must be 3-16 characters (letters, numbers, underscore only)');
+            return;
+        }
+        
+        // Check reserved words
+        const reservedWords = ['admin', 'mod', 'moderator', 'system', 'bot', 'null', 'undefined'];
+        if (reservedWords.includes(chatName.toLowerCase()) || reservedWords.includes(gameName.toLowerCase())) {
+            alert('This username is reserved. Please choose another.');
+            return;
+        }
+        
+        // Create user object
+        const userData = {
+            walletAddress: walletAddress,
+            chatName: chatName,
+            gameName: gameName,
+            rp: 0,
+            role: 'User',
+            createdAt: new Date().toISOString(),
+            messageCount: 0,
+            reactionCount: 0,
+            isTrusted: false
+        };
+        
+        // Save permanently (CANNOT BE CHANGED)
+        localStorage.setItem(`404x1_user_${walletAddress}`, JSON.stringify(userData));
+        localStorage.setItem('404x1_current_user', JSON.stringify(userData));
+        
+        // Login user
+        loginUser(userData);
     });
 }
 
-// Smooth scroll for internal links
-document.querySelectorAll('a[href^="#"]').forEach(anchor => {
-    anchor.addEventListener('click', function (e) {
-        e.preventDefault();
-        const target = document.querySelector(this.getAttribute('href'));
-        if (target) {
-            target.scrollIntoView({
-                behavior: 'smooth'
-            });
-        }
-    });
-});
-
-// Add parallax effect to floating elements
-window.addEventListener('scroll', () => {
-    const scrolled = window.pageYOffset;
-    const floatItems = document.querySelectorAll('.float-item');
+function loginUser(userData) {
+    // Update UI
+    if (authBtn) {
+        authBtn.textContent = `${userData.chatName.substring(0, 8)}...`;
+    }
     
-    floatItems.forEach((item, index) => {
-        const speed = 0.5 + (index * 0.1);
-        item.style.transform = `translateY(${scrolled * speed}px)`;
-    });
-});
+    // Close modal
+    authModal.classList.remove('active');
+    
+    // Store current session
+    localStorage.setItem('404x1_current_user', JSON.stringify(userData));
+    
+    // Redirect to chat or show success
+    console.log('User logged in:', userData);
+    alert(`Welcome ${userData.chatName}! Your wallet is connected.`);
+}
 
-// Check if user is logged in (from localStorage)
+// Check if user is already connected
 function checkAuth() {
-    const isLoggedIn = localStorage.getItem('404x1_auth');
-    if (isLoggedIn && authBtn) {
-        authBtn.textContent = 'PROFILE';
-        authBtn.href = '#profile';
+    const currentUser = localStorage.getItem('404x1_current_user');
+    if (currentUser) {
+        const user = JSON.parse(currentUser);
+        if (authBtn) {
+            authBtn.textContent = `${user.chatName.substring(0, 8)}...`;
+        }
     }
 }
 
+// Matrix falling code effect
+function createMatrixEffect() {
+    const matrixBg = document.getElementById('matrixBg');
+    if (!matrixBg) return;
+    
+    const chars = '404ERRORX1SVMNOTFOUND01';
+    const columns = Math.floor(window.innerWidth / 20);
+    
+    for (let i = 0; i < columns; i++) {
+        const column = document.createElement('div');
+        column.className = 'matrix-column';
+        column.style.left = `${i * 20}px`;
+        column.style.animationDuration = `${Math.random() * 10 + 10}s`;
+        column.style.animationDelay = `${Math.random() * 5}s`;
+        
+        // Generate random characters
+        let text = '';
+        for (let j = 0; j < 30; j++) {
+            text += chars[Math.floor(Math.random() * chars.length)] + '\n';
+        }
+        column.textContent = text;
+        
+        matrixBg.appendChild(column);
+    }
+}
+
+// Initialize
 checkAuth();
+if (document.getElementById('matrixBg')) {
+    createMatrixEffect();
+}
