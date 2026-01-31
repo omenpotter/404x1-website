@@ -178,8 +178,68 @@
 
             <!-- Tab Navigation -->
             <div class="rules-tabs">
-                <button class="rule-tab active" data-tab="chat">💬 CHAT RULES</button>
+                <button class="rule-tab active" data-tab="token">💰 TOKEN INFO</button>
+                <button class="rule-tab" data-tab="chat">💬 CHAT RULES</button>
                 <button class="rule-tab" data-tab="game">🎮 GAME RULES</button>
+            </div>
+
+            <!-- Token Info Content -->
+            <div class="rules-content active" id="tokenInfo">
+                <div class="docs-section">
+                    <h2 style="text-align: center; color: var(--accent-green);">404 — Page Not Found</h2>
+                    <p style="text-align: center; color: var(--error-red); font-size: 1.2rem;">❌ Error: Page Not Found</p>
+                    <p style="text-align: center; color: var(--text-secondary); margin-bottom: 2rem;">The page you are looking for does not exist.<br>Neither does a roadmap, a promise, or a guarantee.</p>
+                    
+                    <h3>🧩 What is 404?</h3>
+                    <p><strong>404 is a minimal, experimental meme token inspired by the most familiar error on the internet: Page Not Found.</strong></p>
+                    <p>There is no destination. There is no direction.<br>Only supply, liquidity, and the market.</p>
+                    
+                    <h3>🧮 Supply Information</h3>
+                    <ul>
+                        <li><strong>Token name:</strong> 404</li>
+                        <li><strong>Total supply:</strong> 404,404</li>
+                        <li><strong>Supply type:</strong> ✅ Fixed</li>
+                        <li><strong>Mint Authority:</strong> ❌ Not Set</li>
+                        <li><strong>Contract Address:</strong> <code style="background: var(--bg-tertiary); padding: 0.3rem 0.6rem; border-radius: 3px; font-size: 0.85rem; color: var(--accent-cyan);">4o4UheANLdqF4gSV4zWTbCTCercQNSaTm6nVcDetzPb2</code></li>
+                    </ul>
+                    
+                    <h3>💧 Liquidity & Launch</h3>
+                    <ul>
+                        <li><strong>Liquidity source:</strong> xDEX Pool</li>
+                        <li><strong>Presale:</strong> None</li>
+                        <li><strong>Whitelist:</strong> None</li>
+                        <li><strong>Free mint:</strong> None</li>
+                    </ul>
+                    <p>Liquidity was added directly to the DEX. Price discovery is left entirely to the market.</p>
+                    
+                    <h3>👤 Creator Transparency — 4.04%</h3>
+                    <ul>
+                        <li><strong>Creator allocation:</strong> 4.04% of total supply</li>
+                        <li><strong>Method:</strong> Acquired openly and transparently</li>
+                    </ul>
+                    
+                    <h3>⚖️ Fairness Model</h3>
+                    <ul>
+                        <li>❌ No private allocation</li>
+                        <li>❌ No early access</li>
+                        <li>❌ No insider wallets</li>
+                    </ul>
+                    
+                    <h3>☠️ Risk & Philosophy</h3>
+                    <ul>
+                        <li><strong>If you bought, you bought from the pool.</strong></li>
+                        <li><strong>If you didn't, nothing was taken from you.</strong></li>
+                    </ul>
+                    
+                    <h3>❓ FAQs (404 Style)</h3>
+                    <ul>
+                        <li><strong>Is there a roadmap?</strong> ❌ <span style="color: var(--error-red);">Error 404 — Roadmap Not Found</span></li>
+                        <li><strong>Can more tokens be minted?</strong> ❌ <span style="color: var(--error-red);">Error 404 — Supply Expansion Not Found</span></li>
+                        <li><strong>Is success guaranteed?</strong> ❌ <span style="color: var(--error-red);">Error 404 — Guarantees Not Found</span></li>
+                    </ul>
+                    
+                    <p style="text-align: center; font-size: 1.2rem; margin-top: 2rem; color: var(--accent-green);"><strong>If you are looking for certainty, you are on the wrong page.</strong></p>
+                </div>
             </div>
 
             <!-- Chat Rules Content -->
@@ -329,7 +389,15 @@
                 
                 // Add active to clicked tab
                 tab.classList.add('active');
-                document.getElementById(targetTab + 'Rules').classList.add('active');
+                
+                // Handle different tab IDs
+                if (targetTab === 'token') {
+                    document.getElementById('tokenInfo').classList.add('active');
+                } else if (targetTab === 'chat') {
+                    document.getElementById('chatRules').classList.add('active');
+                } else if (targetTab === 'game') {
+                    document.getElementById('gameRules').classList.add('active');
+                }
             });
         });
     </script>
