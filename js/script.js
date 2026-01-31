@@ -312,7 +312,7 @@ async function fetchTokenPrice() {
             body: JSON.stringify({
                 network: 'X1 Mainnet',
                 wallet: '11111111111111111111111111111111',
-                token_in: WXNT_ADDRESS,
+                token_in: WXNT_ADDRESS, // So11111... (correct wrapped XNT)
                 token_out: TOKEN_CA,
                 token_in_amount: 1,
                 is_exact_amount_in: true
@@ -320,15 +320,19 @@ async function fetchTokenPrice() {
         });
         const data = await res.json();
         console.log('Direct xDEX raw:', data);
-        let price = data.estimatedOutputAmount || data.output_amount
+
+        // xDEX returns how many 404 tokens you get for 1 XNT
+        let outputAmount = data.estimatedOutputAmount || data.output_amount
             || (data.data && (data.data.estimatedOutputAmount || data.data.output_amount))
             || data.result || null;
-        if (price) {
-            price = parseFloat(price);
-            if (price > 1) price = 1 / price; // 1 XNT → N tokens means price = 1/N
-            if (price > 0) {
-                currentPrice = price;
+
+        if (outputAmount) {
+            outputAmount = parseFloat(outputAmount);
+            if (outputAmount > 0) {
+                // Price per token = 1 XNT / outputAmount tokens
+                currentPrice = 1 / outputAmount;
                 priceEl.textContent = `${currentPrice.toFixed(8)} XNT`;
+                console.log('Price via direct xDEX: 1 XNT buys', outputAmount, '404 → price =', currentPrice);
                 return currentPrice;
             }
         }
@@ -425,9 +429,21 @@ async function fetchAllHolders() {
 
         let allAccounts = [];
 
-        // Try Token-2022 program first (404 uses Token-2022 based on immutable metadata)
-        for (const programId of [TOKEN_PROGRAM_2022, TOKEN_PROGRAM_LEGACY]) {
+        // Try Token-2022 program first (404 uses Token-2022 — immutable metadata)
+        // IMPORTANT: Token-2022 accounts are NOT 165 bytes — they have extension data
+        // so we must NOT use dataSize filter for Token-2022
+        for (const [programId, useDataSize] of [
+            [TOKEN_PROGRAM_2022, false],   // Token-2022: variable size, no dataSize filter
+            [TOKEN_PROGRAM_LEGACY, true]   // Legacy: fixed 165 bytes
+        ]) {
             try {
+                const filters = [
+                    { memcmp: { offset: 0, bytes: TOKEN_CA } }
+                ];
+                if (useDataSize) {
+                    filters.push({ dataSize: 165 });
+                }
+
                 const res = await fetch(X1_RPC, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -439,16 +455,13 @@ async function fetchAllHolders() {
                             programId,
                             {
                                 encoding: 'jsonParsed',
-                                filters: [
-                                    { dataSize: 165 },
-                                    { memcmp: { offset: 0, bytes: TOKEN_CA } }
-                                ]
+                                filters: filters
                             }
                         ]
                     })
                 });
                 const data = await res.json();
-                console.log(`getProgramAccounts (${programId.slice(0,8)}...) returned:`, data.result ? data.result.length : 0, 'accounts');
+                console.log(`getProgramAccounts (${programId.slice(0,8)}...) returned:`, data.result ? data.result.length : 0, 'accounts', data.error ? '| error: ' + JSON.stringify(data.error) : '');
                 if (data.result && data.result.length > 0) {
                     allAccounts = allAccounts.concat(data.result);
                 }
