@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Docs & Rules - 404x1</title>
+    <link rel="stylesheet" href="css/styles.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Rubik+Mono+One&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+    <style>
+        .docs-page {
+            min-height: 100vh;
+            padding: 120px 2rem 4rem;
+        }
+        .docs-container {
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+        .docs-header {
+            text-align: center;
+            margin-bottom: 4rem;
+        }
+        .docs-header h1 {
+            font-size: clamp(3rem, 8vw, 4rem);
+            color: var(--accent-green);
+            margin-bottom: 1rem;
+        }
+        .docs-section {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-left: 4px solid var(--accent-green);
+            border-radius: 8px;
+            padding: 2.5rem;
+            margin-bottom: 2rem;
+        }
+        .docs-section h2 {
+            color: var(--accent-green);
+            font-family: 'Rubik Mono One', sans-serif;
+            font-size: 1.8rem;
+            margin-bottom: 1.5rem;
+        }
+        .docs-section h3 {
+            color: var(--accent-cyan);
+            font-size: 1.3rem;
+            margin: 2rem 0 1rem;
+        }
+        .docs-section p {
+            color: var(--text-secondary);
+            line-height: 1.8;
+            margin-bottom: 1rem;
+        }
+        .rules-list {
+            list-style: none;
+            padding: 0;
+        }
+        .rules-list li {
+            padding: 1rem;
+            margin: 0.8rem 0;
+            background: var(--bg-tertiary);
+            border-left: 3px solid var(--accent-cyan);
+            border-radius: 4px;
+            color: var(--text-primary);
+        }
+        .rules-list li strong {
+            color: var(--accent-green);
+        }
+        .rp-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 1.5rem 0;
+        }
+        .rp-table th,
+        .rp-table td {
+            padding: 1rem;
+            text-align: left;
+            border-bottom: 1px solid var(--border-color);
+        }
+        .rp-table th {
+            background: var(--bg-tertiary);
+            color: var(--accent-green);
+            font-weight: bold;
+        }
+        .rp-table td {
+            color: var(--text-secondary);
+        }
+        .positive {
+            color: var(--accent-green);
+            font-weight: bold;
+        }
+        .negative {
+            color: var(--error-red);
+            font-weight: bold;
+        }
+        .warning-box {
+            background: rgba(255, 85, 85, 0.1);
+            border: 2px solid var(--error-red);
+            border-radius: 8px;
+            padding: 1.5rem;
+            margin: 1.5rem 0;
+            color: var(--error-red);
+        }
+        .info-box {
+            background: rgba(125, 255, 125, 0.05);
+            border: 2px solid var(--accent-green);
+            border-radius: 8px;
+            padding: 1.5rem;
+            margin: 1.5rem 0;
+            color: var(--text-primary);
+        }
+    </style>
+</head>
+<body>
+    <div class="scanlines"></div>
+    <div class="noise"></div>
+    
+    <nav class="navbar">
+        <div class="nav-container">
+            <div class="nav-logo">
+                <span class="glitch" data-text="404x1">404x1</span>
+            </div>
+            <ul class="nav-menu">
+                <li><a href="index.html">HOME</a></li>
+                <li><a href="chat.html">CHAT</a></li>
+                <li><a href="game.html">GAME</a></li>
+                <li><a href="leaderboard.html">LEADERBOARD</a></li>
+                <li><a href="#" class="nav-cta" id="authBtn">LOGIN</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <main class="docs-page">
+        <div class="docs-container">
+            <div class="docs-header">
+                <h1 class="glitch" data-text="DOCS & RULES">DOCS & RULES</h1>
+                <p style="color: var(--text-secondary); font-size: 1.1rem;">
+                    Chat Rules & Game Mechanics
+                </p>
+            </div>
+
+            <!-- Chat Rules -->
+            <div class="docs-section">
+                <h2>💬 Chat Rules</h2>
+                
+                <h3>RP from Chat Activities</h3>
+                <table class="rp-table">
+                    <thead>
+                        <tr>
+                            <th>Action</th>
+                            <th>RP Earned</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr><td>New post</td><td class="positive">+2 RP</td></tr>
+                        <tr><td>Reply to message</td><td class="positive">+2 RP</td></tr>
+                        <tr><td>Give reaction</td><td class="positive">+1 RP</td></tr>
+                        <tr><td>Receive reaction</td><td class="positive">+1 RP</td></tr>
+                        <tr><td>Meme/image post</td><td class="positive">+3 RP</td></tr>
+                    </tbody>
+                </table>
+
+                <h3>RP Penalties</h3>
+                <table class="rp-table">
+                    <thead>
+                        <tr><th>Violation</th><th>RP Penalty</th></tr>
+                    </thead>
+                    <tbody>
+                        <tr><td>Message deleted by mod</td><td class="negative">-5 RP</td></tr>
+                        <tr><td>Muted by mod</td><td class="negative">-10 RP</td></tr>
+                        <tr><td>Spam burst detected</td><td class="negative">-5 to -20 RP</td></tr>
+                        <tr><td>Report upheld</td><td class="negative">-10 RP</td></tr>
+                    </tbody>
+                </table>
+
+                <div class="warning-box">
+                    <strong>⚠️ Trusted Role:</strong> Requires 1000 RP. Unlocks images/GIFs, links, and reduced slow mode.
+                </div>
+            </div>
+
+            <!-- Game Rules -->
+            <div class="docs-section">
+                <h2>🎮 Game Rules</h2>
+                
+                <h3>Structure</h3>
+                <ul class="rules-list">
+                    <li><strong>50 Total Levels:</strong> 10 Worlds × 5 Levels each</li>
+                    <li><strong>Progressive Difficulty:</strong> Each world gets significantly harder</li>
+                    <li><strong>Intentionally Difficult:</strong> Skill beats grind</li>
+                </ul>
+
+                <h3>RP from Game</h3>
+                <table class="rp-table">
+                    <thead>
+                        <tr><th>Achievement</th><th>RP Earned</th></tr>
+                    </thead>
+                    <tbody>
+                        <tr><td>Standard enemy kill</td><td class="positive">+0.1 RP</td></tr>
+                        <tr><td>Elite enemy kill</td><td class="positive">+0.5 RP</td></tr>
+                        <tr><td>Mini-boss kill</td><td class="positive">+1 RP</td></tr>
+                        <tr><td>Boss kill</td><td class="positive">+3 RP</td></tr>
+                        <tr><td>Level completed</td><td class="positive">+3 RP</td></tr>
+                        <tr><td>No-death level bonus</td><td class="positive">+2 RP</td></tr>
+                        <tr><td>World completed</td><td class="positive">+10 RP</td></tr>
+                    </tbody>
+                </table>
+
+                <h3>Hardcore Mode</h3>
+                <p>Complete 10 consecutive levels with 0 continues and ≤1 death total.</p>
+                <ul class="rules-list">
+                    <li><strong>Reward:</strong> +5 RP per Hardcore block (HC-10, HC-20, HC-30, HC-40, HC-50)</li>
+                    <li><strong>Badge:</strong> Permanent achievement displayed on leaderboard</li>
+                </ul>
+            </div>
+
+            <div class="docs-section" style="text-align: center;">
+                <h2>🔗 Links</h2>
+                <div style="display: flex; gap: 2rem; justify-content: center; flex-wrap: wrap; margin-top: 1.5rem;">
+                    <a href="https://x.com/rkbehelvi" target="_blank" rel="noopener noreferrer" style="color: var(--accent-green); text-decoration: none; font-size: 1.1rem;">Twitter</a>
+                    <a href="https://t.me/+jpYK0gMfA5o1MGFk" target="_blank" rel="noopener noreferrer" style="color: var(--accent-green); text-decoration: none; font-size: 1.1rem;">Telegram</a>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script src="js/script.js"></script>
+</body>
+</html>
