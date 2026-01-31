@@ -135,11 +135,17 @@
                     </a>
                 </div>
 
-                <!-- Live Data Feed -->
+                <!-- Live Data Feed — Tabbed -->
                 <div class="live-data-feed">
-                    <div class="live-transactions">
-                        <h3>🔴 Recent Transactions</h3>
-                        <div class="transaction-header" style="display: grid; grid-template-columns: 120px 80px 100px 100px 100px 100px; gap: 1rem; padding: 0.8rem; background: var(--bg-tertiary); border-radius: 4px; margin-bottom: 0.5rem; font-weight: bold; font-size: 0.85rem; color: var(--accent-green);">
+                    <!-- Tab buttons -->
+                    <div class="feed-tabs">
+                        <button class="feed-tab active" data-feed="transactions">🔴 Recent Transactions</button>
+                        <button class="feed-tab" data-feed="holders">👥 All Holders</button>
+                    </div>
+
+                    <!-- Transactions panel -->
+                    <div class="feed-panel active" id="feedTransactions">
+                        <div class="transaction-header">
                             <div>Timestamp</div>
                             <div>Type</div>
                             <div>XNT</div>
@@ -151,8 +157,15 @@
                             <div class="loading-more">Loading transactions...</div>
                         </div>
                     </div>
-                    <div class="live-holders">
-                        <h3>👥 All Holders</h3>
+
+                    <!-- Holders panel -->
+                    <div class="feed-panel" id="feedHolders">
+                        <div class="holder-header">
+                            <div>Rank</div>
+                            <div>Wallet</div>
+                            <div>Balance</div>
+                            <div>Share</div>
+                        </div>
                         <div class="holder-list" id="holderList">
                             <div class="loading-more">Loading holders...</div>
                         </div>
