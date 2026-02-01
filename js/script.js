@@ -894,27 +894,33 @@ document.querySelectorAll('.feed-tab').forEach(tab => {
 
 // ─── Live Candlestick Chart (TradingView Lightweight Charts) ───────────────
 
+var chartInitDone = false;
+
 function startChart() {
-    const container = document.getElementById('chartContainer');
+    var container = document.getElementById('chartContainer');
     if (!container || typeof LightweightCharts === 'undefined') {
-        // CDN not loaded yet — retry in 200ms
         setTimeout(startChart, 200);
         return;
     }
+    // Guard — only init once
+    if (chartInitDone) return;
+    chartInitDone = true;
+
+    // Wait one frame so the container has been laid out and has real dimensions
+    requestAnimationFrame(function() {
 
     // ── State ──
-    let chart, candleSeries, volumeSeries;
-    let currentTF = 60; // minutes
-    let showVolume = true;
-    let allTrades = []; // raw {time, price, xnt, token404} from parsed txs
-    let candleData = [];
-    let volumeData = [];
+    var chart, candleSeries, volumeSeries;
+    var currentTF = 60;
+    var showVolume = true;
+    var allTrades = [];
+    var candleData = [];
+    var volumeData = [];
 
-    // ── Create chart ──
+    // ── Create chart with autosize ──
     chart = LightweightCharts.createChart({
         element: container,
-        width: container.clientWidth,
-        height: 420,
+        autosize: true,
         layout: {
             background: { color: '#0a0e13' },
             textColor: '#8892b0',
@@ -948,7 +954,7 @@ function startChart() {
         borderDownColor: '#e74c3c'
     });
 
-    // ── Volume price scale + series ──
+    // ── Volume scale + series ──
     chart.addPriceScale({
         scaleId: 'volume',
         position: 'left',
@@ -963,17 +969,16 @@ function startChart() {
     });
     volumeSeries.applyOptions({ visible: showVolume });
 
-    // ── Crosshair move → update OHLCV legend ──
+    // ── Crosshair → OHLCV legend ──
     chart.subscribeCrosshairMove(function(param) {
         if (!param || !param.time || !candleSeries) return;
-        const candle = param.seriesPrices.get(candleSeries);
+        var candle = param.seriesPrices.get(candleSeries);
         if (!candle) return;
         document.getElementById('ohlcO').textContent = candle.open.toFixed(6);
         document.getElementById('ohlcH').textContent = candle.high.toFixed(6);
         document.getElementById('ohlcL').textContent  = candle.low.toFixed(6);
         document.getElementById('ohlcC').textContent = candle.close.toFixed(6);
-
-        const vol = volumeData.find(function(v) { return v.time === param.time; });
+        var vol = volumeData.find(function(v) { return v.time === param.time; });
         document.getElementById('ohlcV').textContent = vol ? Math.round(vol.value).toLocaleString() : '0';
     });
 
@@ -996,7 +1001,7 @@ function startChart() {
 
         var sorted = Object.keys(buckets).map(Number).sort(function(a,b){ return a-b; }).map(function(k){ return buckets[k]; });
 
-        // Fill gaps with previous close (no phantom candles with zero price)
+        // Fill gaps with previous close
         var filled = [];
         for (var i = 0; i < sorted.length; i++) {
             if (i > 0) {
@@ -1017,7 +1022,7 @@ function startChart() {
         });
     }
 
-    // ── Update chart header: price + 24h change ──
+    // ── Update header price + 24h change ──
     function updateChartHeader() {
         if (allTrades.length === 0) return;
         var latest = allTrades[allTrades.length - 1];
@@ -1025,7 +1030,6 @@ function startChart() {
         var changeEl = document.getElementById('chartPriceChange');
         if (priceEl) priceEl.textContent = latest.price.toFixed(6) + ' XNT';
 
-        // Find price ~24h ago
         var now = latest.time;
         var target24h = now - 86400;
         var price24h = null;
@@ -1039,7 +1043,7 @@ function startChart() {
         }
     }
 
-    // ── Render chart ──
+    // ── Render ──
     function renderChart() {
         if (candleData.length === 0) return;
         candleSeries.setData(candleData);
@@ -1056,13 +1060,12 @@ function startChart() {
         updateChartHeader();
     }
 
-    // ── Parse a single tx into a trade object (or null) ──
+    // ── Parse single tx → trade ──
     function parseTrade(sig, txData) {
         if (!txData.result || !txData.result.meta) return null;
         var meta = txData.result.meta;
         if (!meta.postTokenBalances || !meta.preTokenBalances) return null;
 
-        // 404 token change
         var token404 = 0;
         meta.postTokenBalances.forEach(function(postB) {
             if (postB.mint !== TOKEN_CA) return;
@@ -1072,7 +1075,6 @@ function startChart() {
         });
         if (token404 < 0.01) return null;
 
-        // XNT change — both passes
         var xnt = 0;
         meta.postTokenBalances.forEach(function(postB) {
             if (postB.mint !== WXNT_ADDRESS) return;
@@ -1087,7 +1089,6 @@ function startChart() {
                 if (amt > xnt) xnt = amt;
             }
         });
-        // Native lamport fallback
         if (xnt === 0 && meta.preBalances && meta.postBalances) {
             for (var j = 0; j < meta.preBalances.length; j++) {
                 var diff = Math.abs(meta.postBalances[j] - meta.preBalances[j]) / 1e9;
@@ -1101,7 +1102,7 @@ function startChart() {
         return null;
     }
 
-    // ── Fetch trades — batched RPC calls (10 at a time) ──
+    // ── Fetch trades — batched 10 at a time ──
     async function fetchTrades() {
         try {
             var sigRes = await fetch(X1_RPC, {
@@ -1118,7 +1119,6 @@ function startChart() {
 
             for (var start = 0; start < sigs.length; start += BATCH) {
                 var batch = sigs.slice(start, start + BATCH);
-                // Fire all in parallel
                 var promises = batch.map(function(sig) {
                     return fetch(X1_RPC, {
                         method: 'POST',
@@ -1135,7 +1135,6 @@ function startChart() {
                 }
             }
 
-            // Sort oldest first
             trades.sort(function(a, b) { return a.time - b.time; });
             allTrades = trades;
             console.log('Chart: fetched', trades.length, 'trades');
@@ -1176,16 +1175,13 @@ function startChart() {
         });
     }
 
-    // ── Resize handler ──
-    window.addEventListener('resize', function() {
-        if (chart) chart.resize(container.clientWidth, 420);
-    });
-
     // ── Initial fetch ──
     fetchTrades();
 
     // ── Refresh every 60s ──
     setInterval(function() { fetchTrades(); }, 60000);
+
+    }); // end requestAnimationFrame
 }
 
 // Start chart (waits for LightweightCharts CDN)
