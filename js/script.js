@@ -1071,22 +1071,35 @@ function startChart() {
         var meta = txData.result.meta;
         if (!meta.postTokenBalances || !meta.preTokenBalances) return null;
 
+        // ── 404 token amount: largest single-account change ──
         var token404 = 0;
+        // Pass 1: accounts present in post
         meta.postTokenBalances.forEach(function(postB) {
             if (postB.mint !== TOKEN_CA) return;
             var preB = meta.preTokenBalances.find(function(p) { return p.accountIndex === postB.accountIndex && p.mint === TOKEN_CA; });
             var change = Math.abs(getHumanAmount(postB) - (preB ? getHumanAmount(preB) : 0));
             if (change > token404) token404 = change;
         });
+        // Pass 2: accounts that exist in pre but NOT in post (closed after full withdrawal)
+        meta.preTokenBalances.forEach(function(preB) {
+            if (preB.mint !== TOKEN_CA) return;
+            if (!meta.postTokenBalances.find(function(p) { return p.accountIndex === preB.accountIndex && p.mint === TOKEN_CA; })) {
+                var amt = getHumanAmount(preB);
+                if (amt > token404) token404 = amt;
+            }
+        });
         if (token404 < 0.01) return null;
 
+        // ── XNT amount: largest single-account change for WXNT ──
         var xnt = 0;
+        // Pass 1: accounts present in post
         meta.postTokenBalances.forEach(function(postB) {
             if (postB.mint !== WXNT_ADDRESS) return;
             var preB = meta.preTokenBalances.find(function(p) { return p.accountIndex === postB.accountIndex && p.mint === WXNT_ADDRESS; });
             var change = Math.abs(getHumanAmount(postB) - (preB ? getHumanAmount(preB) : 0));
             if (change > xnt) xnt = change;
         });
+        // Pass 2: accounts closed after full withdrawal
         meta.preTokenBalances.forEach(function(preB) {
             if (preB.mint !== WXNT_ADDRESS) return;
             if (!meta.postTokenBalances.find(function(p) { return p.accountIndex === preB.accountIndex && p.mint === WXNT_ADDRESS; })) {
@@ -1094,11 +1107,14 @@ function startChart() {
                 if (amt > xnt) xnt = amt;
             }
         });
+        // Fallback: native lamport diffs — find the LARGEST diff (skip tiny rent/fee)
         if (xnt === 0 && meta.preBalances && meta.postBalances) {
+            var maxDiff = 0;
             for (var j = 0; j < meta.preBalances.length; j++) {
                 var diff = Math.abs(meta.postBalances[j] - meta.preBalances[j]) / 1e9;
-                if (diff > 0.0005) { xnt = diff; break; }
+                if (diff > maxDiff) maxDiff = diff;
             }
+            if (maxDiff > 0.0005) xnt = maxDiff;
         }
 
         if (xnt > 0 && token404 > 0) {
@@ -1144,8 +1160,14 @@ function startChart() {
             allTrades = trades;
             console.log('Chart: fetched', trades.length, 'trades');
 
-            buildCandles(allTrades, currentTF);
-            renderChart();
+            // Remove loading overlay now that the fetch is done
+            var loadingEl = container.querySelector('.chart-loading');
+            if (loadingEl) loadingEl.remove();
+
+            if (trades.length > 0) {
+                buildCandles(allTrades, currentTF);
+                renderChart();
+            }
 
         } catch(e) {
             console.error('Chart fetch error:', e);
