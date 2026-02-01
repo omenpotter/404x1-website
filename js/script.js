@@ -921,9 +921,21 @@ function startChart() {
     var chartW = container.clientWidth || 600;
     var chartH = container.clientHeight || 420;
 
+    // ── Create a fresh child div for LightweightCharts ──
+    // SES (X1 Wallet extension) freezes existing DOM elements, stripping
+    // getBoundingClientRect — which crashes LightweightCharts on init.
+    // A brand-new element created AFTER SES ran is not frozen.
+    var chartEl = document.createElement('div');
+    chartEl.style.width = '100%';
+    chartEl.style.height = chartH + 'px';
+    // Remove loading overlay before inserting chart element
+    var loadingEl = container.querySelector('.chart-loading');
+    if (loadingEl) loadingEl.remove();
+    container.appendChild(chartEl);
+
     // ── Create chart with explicit pixel size ──
     chart = LightweightCharts.createChart({
-        element: container,
+        element: chartEl,
         width: chartW,
         height: chartH,
         layout: {
