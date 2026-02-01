@@ -280,92 +280,123 @@ if (copyBtn && caAddress) {
 const TOKEN_CA = '4o4UheANLdqF4gSV4zWTbCTCercQNSaTm6nVcDetzPb2';
 const WXNT_ADDRESS = 'So11111111111111111111111111111111111111112'; // Native SOL equivalent on X1
 const X1_RPC = 'https://rpc.mainnet.x1.xyz/';
-const XDEX_API = 'https://api.xdex.xyz/api/xendex/swap/prepare';
 
 let currentPrice = null;
 let tokenDecimals = 9; // Default, will be updated
 
-// Fetch Token Price — tries Vercel proxy first, then direct xDEX
+// Pool token account addresses — discovered from first swap tx, then cached
+let poolTokenAccount404 = null;  // pool's 404 reserve account
+let poolTokenAccountXNT = null;  // pool's WXNT reserve account
+
+// Fetch Token Price from xDEX CPMM pool reserves
+// xDEX is a CPMM: price = XNT_reserve / 404_reserve
+// We read both reserve balances directly from X1 RPC — no external API needed
 async function fetchTokenPrice() {
     const priceEl = document.getElementById('priceXNT');
 
-    // --- Attempt 1: Vercel serverless proxy (bypasses CORS) ---
     try {
-        const res = await fetch('/api/price');
-        if (res.ok) {
-            const data = await res.json();
-            console.log('Proxy response:', JSON.stringify(data));
-            if (data.success && data.price && data.price > 0) {
-                currentPrice = data.price;
-                priceEl.textContent = `${currentPrice.toFixed(6)} XNT`;
-                return currentPrice;
-            }
-            // Proxy reached xDEX but couldn't parse — log raw for debugging
-            if (data.raw) {
-                console.warn('Proxy could not find output amount. xDEX raw:', JSON.stringify(data.raw));
-            }
-        } else {
-            console.log('Proxy returned HTTP', res.status, '— not deployed?');
+        // If we don't have pool account addresses yet, discover them from a recent swap tx
+        if (!poolTokenAccount404 || !poolTokenAccountXNT) {
+            await discoverPoolAccounts();
         }
-    } catch (e) {
-        console.log('Proxy fetch failed:', e.message);
-    }
 
-    // --- Attempt 2: Direct xDEX API (will fail with CORS in browser, but try anyway) ---
-    try {
-        const res = await fetch('https://api.xdex.xyz/api/xendex/swap/prepare', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                network: 'X1 Mainnet',
-                wallet: '11111111111111111111111111111111',
-                token_in: WXNT_ADDRESS,
-                token_out: TOKEN_CA,
-                token_in_amount: 1,
-                is_exact_amount_in: true
+        if (!poolTokenAccount404 || !poolTokenAccountXNT) {
+            console.log('Pool accounts not yet discovered — waiting for first tx');
+            return null;
+        }
+
+        // Read both reserve balances in parallel
+        const [res404, resXNT] = await Promise.all([
+            fetch(X1_RPC, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'getTokenAccountBalance', params: [poolTokenAccount404] })
+            }),
+            fetch(X1_RPC, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ jsonrpc: '2.0', id: 2, method: 'getTokenAccountBalance', params: [poolTokenAccountXNT] })
             })
-        });
-        const data = await res.json();
-        console.log('Direct xDEX raw:', JSON.stringify(data));
+        ]);
 
-        // Same deep-scan logic as proxy: try known fields, then any numeric in range
-        let outputAmount = data.estimatedOutputAmount || data.output_amount
-            || (data.data && (data.data.estimatedOutputAmount || data.data.output_amount))
-            || data.result || null;
+        const data404 = await res404.json();
+        const dataXNT = await resXNT.json();
 
-        // If named fields didn't work, scan for any number in plausible range
-        if (!outputAmount) {
-            const scan = (obj, depth = 0) => {
-                if (depth > 4 || obj == null) return null;
-                if (typeof obj === 'number' && obj >= 10 && obj <= 999999) return obj;
-                if (typeof obj === 'string') { const n = parseFloat(obj); if (!isNaN(n) && n >= 10 && n <= 999999) return n; }
-                if (typeof obj === 'object') { for (const v of Object.values(obj)) { const r = scan(v, depth+1); if (r) return r; } }
-                return null;
-            };
-            outputAmount = scan(data);
-        }
+        const reserve404 = parseFloat(data404.result?.value?.uiAmount || 0);
+        const reserveXNT = parseFloat(dataXNT.result?.value?.uiAmount || 0);
 
-        if (outputAmount) {
-            outputAmount = parseFloat(outputAmount);
-            if (outputAmount > 0) {
-                currentPrice = 1 / outputAmount;
-                priceEl.textContent = `${currentPrice.toFixed(6)} XNT`;
-                console.log(`xDEX: 1 XNT buys ${outputAmount} 404 → price = ${currentPrice} XNT`);
-                return currentPrice;
-            }
+        console.log(`Pool reserves: ${reserveXNT} XNT / ${reserve404} 404`);
+
+        if (reserve404 > 0 && reserveXNT > 0) {
+            currentPrice = reserveXNT / reserve404;
+            priceEl.textContent = `${currentPrice.toFixed(6)} XNT`;
+            console.log(`Price = ${reserveXNT} / ${reserve404} = ${currentPrice} XNT`);
+            return currentPrice;
         }
     } catch (e) {
-        console.log('Direct xDEX failed (expected CORS):', e.message);
+        console.error('Price fetch error:', e.message);
     }
 
-    // Both failed — show cached or fallback
     if (currentPrice) {
         priceEl.textContent = `${currentPrice.toFixed(6)} XNT`;
     } else {
-        priceEl.textContent = 'Check xDEX';
-        console.warn('Price fetch failed completely. Make sure /api/price.js is deployed to Vercel.');
+        priceEl.textContent = 'Loading...';
     }
     return currentPrice;
+}
+
+// Discover pool token account addresses from a recent swap transaction
+// The pool's 404 and WXNT accounts appear in token balances with owner = pool authority
+async function discoverPoolAccounts() {
+    try {
+        const sigRes = await fetch(X1_RPC, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'getSignaturesForAddress', params: [TOKEN_CA, { limit: 10 }] })
+        });
+        const sigData = await sigRes.json();
+        if (!sigData.result) return;
+
+        for (let i = 0; i < sigData.result.length; i++) {
+            const txRes = await fetch(X1_RPC, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ jsonrpc: '2.0', id: 2, method: 'getTransaction', params: [sigData.result[i].signature, { encoding: 'jsonParsed', maxSupportedTransactionVersion: 0 }] })
+            });
+            const txData = await txRes.json();
+            if (!txData.result?.meta) continue;
+
+            const meta = txData.result.meta;
+            const allBalances = [...(meta.postTokenBalances || []), ...(meta.preTokenBalances || [])];
+
+            // Find the account that holds 404 tokens with the LARGEST balance — that's the pool reserve
+            let best404 = null, best404Amt = 0;
+            let bestXNT = null, bestXNTAmt = 0;
+
+            allBalances.forEach(b => {
+                if (b.mint === TOKEN_CA && b.owner) {
+                    const amt = parseFloat(b.uiTokenAmount?.uiAmount || b.uiTokenAmount?.amount || 0);
+                    if (amt > best404Amt) { best404Amt = amt; best404 = b; }
+                }
+                if (b.mint === WXNT_ADDRESS && b.owner) {
+                    const amt = parseFloat(b.uiTokenAmount?.uiAmount || b.uiTokenAmount?.amount || 0);
+                    if (amt > bestXNTAmt) { bestXNTAmt = amt; bestXNT = b; }
+                }
+            });
+
+            // Pool reserve accounts are owned by the same authority and have large balances
+            if (best404 && bestXNT && best404.owner === bestXNT.owner) {
+                // Found matching pool — extract the token account pubkeys from accountKeys
+                const accountKeys = txData.result.transaction.message.accountKeys.map(k => typeof k === 'string' ? k : k.pubkey);
+                poolTokenAccount404 = accountKeys[best404.accountIndex];
+                poolTokenAccountXNT = accountKeys[bestXNT.accountIndex];
+                console.log(`Discovered pool accounts: 404=${poolTokenAccount404} | XNT=${poolTokenAccountXNT} | owner=${best404.owner}`);
+                return;
+            }
+        }
+    } catch (e) {
+        console.error('Pool discovery error:', e.message);
+    }
 }
 
 // Fetch Token Supply
@@ -620,7 +651,7 @@ async function fetchDetailedTransactions() {
 
             rendered++;
 
-            // First valid tx: if proxy failed to set price, derive from on-chain trade
+            // First valid tx: if pool price not yet set (accounts still being discovered), derive from this trade
             if (rendered === 1 && txDetail.price > 0 && !currentPrice) {
                 currentPrice = txDetail.price;
                 const priceEl = document.getElementById('priceXNT');
