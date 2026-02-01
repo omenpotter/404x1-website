@@ -1123,55 +1123,70 @@ function startChart() {
         return null;
     }
 
-    // ── Fetch trades — batched 10 at a time ──
+    // ── Fetch trades — sequential, one tx at a time (proven reliable pattern) ──
     async function fetchTrades() {
         try {
             var sigRes = await fetch(X1_RPC, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'getSignaturesForAddress', params: [TOKEN_CA, { limit: 200 }] })
+                body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'getSignaturesForAddress', params: [TOKEN_CA, { limit: 1000 }] })
             });
             var sigData = await sigRes.json();
-            if (!sigData.result || sigData.result.length === 0) return;
+            if (!sigData.result || sigData.result.length === 0) {
+                removeLoading(); showNoData('No transactions found'); return;
+            }
 
             var sigs = sigData.result;
             var trades = [];
-            var BATCH = 10;
+            var MAX_TRADES = 100;
 
-            for (var start = 0; start < sigs.length; start += BATCH) {
-                var batch = sigs.slice(start, start + BATCH);
-                var promises = batch.map(function(sig) {
-                    return fetch(X1_RPC, {
+            for (var i = 0; i < sigs.length && trades.length < MAX_TRADES; i++) {
+                var sig = sigs[i];
+                try {
+                    var txRes = await fetch(X1_RPC, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ jsonrpc: '2.0', id: 2, method: 'getTransaction', params: [sig.signature, { encoding: 'jsonParsed', maxSupportedTransactionVersion: 0 }] })
-                    }).then(function(r) { return r.json(); }).catch(function() { return null; });
-                });
-                var results = await Promise.all(promises);
-
-                for (var i = 0; i < results.length; i++) {
-                    if (!results[i]) continue;
-                    var trade = parseTrade(batch[i], results[i]);
+                    });
+                    var txData = await txRes.json();
+                    if (!txData || !txData.result) continue;
+                    var trade = parseTrade(sig, txData);
                     if (trade) trades.push(trade);
+                } catch(e) {
+                    continue; // skip failed tx, keep scanning
                 }
             }
 
             trades.sort(function(a, b) { return a.time - b.time; });
             allTrades = trades;
-            console.log('Chart: fetched', trades.length, 'trades');
+            console.log('Chart: fetched', trades.length, 'trades from', sigs.length, 'signatures');
 
-            // Remove loading overlay now that the fetch is done
-            var loadingEl = container.querySelector('.chart-loading');
-            if (loadingEl) loadingEl.remove();
+            removeLoading();
 
             if (trades.length > 0) {
                 buildCandles(allTrades, currentTF);
                 renderChart();
+            } else {
+                showNoData('No swap trades found yet');
             }
 
         } catch(e) {
             console.error('Chart fetch error:', e);
+            removeLoading(); showNoData('Error loading chart');
         }
+    }
+
+    function removeLoading() {
+        var el = container.querySelector('.chart-loading');
+        if (el) el.remove();
+    }
+
+    function showNoData(msg) {
+        removeLoading();
+        var el = document.createElement('div');
+        el.className = 'chart-loading';
+        el.textContent = msg;
+        container.appendChild(el);
     }
 
     // ── Timeframe buttons ──
