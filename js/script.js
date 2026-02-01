@@ -893,206 +893,219 @@ document.querySelectorAll('.feed-tab').forEach(tab => {
 });
 
 // ─── Live Candlestick Chart (TradingView Lightweight Charts) ───────────────
+// SES (X1 Wallet extension) freezes all DOM elements in the parent realm,
+// stripping getBoundingClientRect which LightweightCharts requires.
+// Solution: render the chart inside an iframe (own unfrozen realm).
+// Parent fetches trades via RPC, posts data to iframe via postMessage.
+// Timeframe/volume button clicks are also posted to iframe.
 
-var chartInitDone = false;
-
-function startChart() {
+(function() {
     var container = document.getElementById('chartContainer');
-    if (!container || typeof LightweightCharts === 'undefined') {
-        setTimeout(startChart, 200);
-        return;
-    }
-    // Guard — only init once
-    if (chartInitDone) return;
-    chartInitDone = true;
+    if (!container) return;
 
-    // Wait one frame so the container has been laid out and has real dimensions
-    requestAnimationFrame(function() {
-
-    // ── State ──
+    // ── The iframe's entire document — self-contained chart renderer ──
+    var IFRAME_DOC = `<!DOCTYPE html>
+<html>
+<head>
+<style>
+* { margin:0; padding:0; box-sizing:border-box; }
+body { background:#0a0e13; overflow:hidden; width:100%; height:100%; }
+#chart { width:100%; height:100%; }
+#msg { position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+       color:#8892b0; font-family:'Share Tech Mono',monospace; font-size:0.9rem;
+       pointer-events:none; }
+</style>
+</head>
+<body>
+<div id="chart"></div>
+<div id="msg">Loading chart...</div>
+<script src="https://cdn.jsdelivr.net/npm/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
+<script>
+(function() {
     var chart, candleSeries, volumeSeries;
+    var allTrades = [];
     var currentTF = 60;
     var showVolume = true;
-    var allTrades = [];
-    var candleData = [];
-    var volumeData = [];
+    var candleData = [], volumeData = [];
+    var ready = false;
 
-    // ── Read actual rendered size ──
-    var chartW = container.clientWidth || 600;
-    var chartH = container.clientHeight || 420;
+    function init() {
+        var el = document.getElementById('chart');
+        chart = LightweightCharts.createChart({
+            element: el,
+            width: el.clientWidth || 600,
+            height: el.clientHeight || 420,
+            layout: { background: { color: '#0a0e13' }, textColor: '#8892b0', fontSize: 11, fontFamily: "'Share Tech Mono', monospace" },
+            grid: { vertLines: { color: '#1a1f2e' }, horzLines: { color: '#1a1f2e' } },
+            crosshair: { mode: LightweightCharts.CrosshairMode.Normal },
+            timeScale: { ticksTargetTimestamp: true, timeVisible: true, secondsVisible: false, borderColor: '#1a1f2e' },
+            rightPriceScale: { borderColor: '#1a1f2e', entirelyVisible: true }
+        });
 
-    // ── Create a fresh child div for LightweightCharts ──
-    // SES (X1 Wallet extension) freezes existing DOM elements, stripping
-    // getBoundingClientRect — which crashes LightweightCharts on init.
-    // A brand-new element created AFTER SES ran is not frozen.
-    var chartEl = document.createElement('div');
-    chartEl.style.width = '100%';
-    chartEl.style.height = chartH + 'px';
-    // Remove loading overlay before inserting chart element
-    var loadingEl = container.querySelector('.chart-loading');
-    if (loadingEl) loadingEl.remove();
-    container.appendChild(chartEl);
+        candleSeries = chart.addCandlestickSeries({
+            upColor: '#4ecca3', downColor: '#e74c3c',
+            wickUpColor: '#4ecca3', wickDownColor: '#e74c3c',
+            borderUpColor: '#4ecca3', borderDownColor: '#e74c3c'
+        });
 
-    // ── Create chart with explicit pixel size ──
-    chart = LightweightCharts.createChart({
-        element: chartEl,
-        width: chartW,
-        height: chartH,
-        layout: {
-            background: { color: '#0a0e13' },
-            textColor: '#8892b0',
-            fontSize: 11,
-            fontFamily: "'Share Tech Mono', monospace"
-        },
-        grid: {
-            vertLines: { color: '#1a1f2e', visible: true },
-            horzLines: { color: '#1a1f2e', visible: true }
-        },
-        crosshair: { mode: LightweightCharts.CrosshairMode.Normal },
-        timeScale: {
-            ticksTargetTimestamp: true,
-            timeVisible: true,
-            secondsVisible: false,
-            borderColor: '#1a1f2e'
-        },
-        rightPriceScale: {
-            borderColor: '#1a1f2e',
-            entirelyVisible: true
-        }
-    });
+        chart.addPriceScale({ scaleId: 'volume', position: 'left', visible: false, scaleMargins: { top: 0.7, bottom: 0 } });
+        volumeSeries = chart.addHistogramSeries({ color: '#4ecca3', priceScaleId: 'volume', lastValuePoint: { visible: false } });
+        volumeSeries.applyOptions({ visible: showVolume });
 
-    // ── Candle series ──
-    candleSeries = chart.addCandlestickSeries({
-        upColor: '#4ecca3',
-        downColor: '#e74c3c',
-        wickUpColor: '#4ecca3',
-        wickDownColor: '#e74c3c',
-        borderUpColor: '#4ecca3',
-        borderDownColor: '#e74c3c'
-    });
+        // Crosshair → post OHLCV back to parent
+        chart.subscribeCrosshairMove(function(param) {
+            if (!param || !param.time || !candleSeries) return;
+            var c = param.seriesPrices.get(candleSeries);
+            if (!c) return;
+            var vol = volumeData.find(function(v){ return v.time === param.time; });
+            window.parent.postMessage({ type: 'ohlcv', o: c.open, h: c.high, l: c.low, cl: c.close, v: vol ? vol.value : 0 }, '*');
+        });
 
-    // ── Volume scale + series ──
-    chart.addPriceScale({
-        scaleId: 'volume',
-        position: 'left',
-        visible: false,
-        scaleMargins: { top: 0.7, bottom: 0 }
-    });
+        // ResizeObserver
+        new ResizeObserver(function(entries) {
+            if (!chart) return;
+            var r = entries[0].contentRect;
+            if (r.width > 0 && r.height > 0) chart.resize(r.width, r.height);
+        }).observe(el);
 
-    volumeSeries = chart.addHistogramSeries({
-        color: '#4ecca3',
-        priceScaleId: 'volume',
-        lastValuePoint: { visible: false }
-    });
-    volumeSeries.applyOptions({ visible: showVolume });
+        ready = true;
+        window.parent.postMessage({ type: 'chartReady' }, '*');
+    }
 
-    // ── Crosshair → OHLCV legend ──
-    chart.subscribeCrosshairMove(function(param) {
-        if (!param || !param.time || !candleSeries) return;
-        var candle = param.seriesPrices.get(candleSeries);
-        if (!candle) return;
-        document.getElementById('ohlcO').textContent = candle.open.toFixed(6);
-        document.getElementById('ohlcH').textContent = candle.high.toFixed(6);
-        document.getElementById('ohlcL').textContent  = candle.low.toFixed(6);
-        document.getElementById('ohlcC').textContent = candle.close.toFixed(6);
-        var vol = volumeData.find(function(v) { return v.time === param.time; });
-        document.getElementById('ohlcV').textContent = vol ? Math.round(vol.value).toLocaleString() : '0';
-    });
-
-    // ── Build candles from raw trades ──
-    function buildCandles(trades, tfMinutes) {
-        var tfSeconds = tfMinutes * 60;
+    function buildAndRender(trades, tf) {
+        var tfSec = tf * 60;
         var buckets = {};
-
         trades.forEach(function(t) {
-            var bucket = Math.floor(t.time / tfSeconds) * tfSeconds;
-            if (!buckets[bucket]) {
-                buckets[bucket] = { time: bucket, open: t.price, high: t.price, low: t.price, close: t.price, volume: 0 };
-            }
-            var c = buckets[bucket];
+            var b = Math.floor(t.time / tfSec) * tfSec;
+            if (!buckets[b]) buckets[b] = { time: b, open: t.price, high: t.price, low: t.price, close: t.price, volume: 0 };
+            var c = buckets[b];
             if (t.price > c.high) c.high = t.price;
-            if (t.price < c.low)  c.low  = t.price;
+            if (t.price < c.low) c.low = t.price;
             c.close = t.price;
             c.volume += t.token404;
         });
-
         var sorted = Object.keys(buckets).map(Number).sort(function(a,b){ return a-b; }).map(function(k){ return buckets[k]; });
 
-        // Fill gaps with previous close
+        // Gap fill
         var filled = [];
         for (var i = 0; i < sorted.length; i++) {
             if (i > 0) {
-                var prev = sorted[i-1];
-                var t = prev.time + tfSeconds;
+                var prev = sorted[i-1], t = prev.time + tfSec;
                 while (t < sorted[i].time) {
                     filled.push({ time: t, open: prev.close, high: prev.close, low: prev.close, close: prev.close, volume: 0 });
-                    prev = filled[filled.length - 1];
-                    t += tfSeconds;
+                    prev = filled[filled.length-1]; t += tfSec;
                 }
             }
             filled.push(sorted[i]);
         }
-
         candleData = filled;
-        volumeData = filled.map(function(c) {
-            return { time: c.time, value: c.volume, color: c.close >= c.open ? '#4ecca344' : '#e74c3c44' };
-        });
-    }
+        volumeData = filled.map(function(c){ return { time: c.time, value: c.volume, color: c.close >= c.open ? '#4ecca344' : '#e74c3c44' }; });
 
-    // ── Update header price + 24h change ──
-    function updateChartHeader() {
-        if (allTrades.length === 0) return;
-        var latest = allTrades[allTrades.length - 1];
-        var priceEl = document.getElementById('chartPrice');
-        var changeEl = document.getElementById('chartPriceChange');
-        if (priceEl) priceEl.textContent = latest.price.toFixed(6) + ' XNT';
-
-        var now = latest.time;
-        var target24h = now - 86400;
-        var price24h = null;
-        for (var i = 0; i < allTrades.length; i++) {
-            if (allTrades[i].time >= target24h) { price24h = allTrades[i].price; break; }
-        }
-        if (changeEl && price24h && price24h > 0) {
-            var pct = ((latest.price - price24h) / price24h) * 100;
-            changeEl.textContent = '(' + (pct >= 0 ? '+' : '') + pct.toFixed(2) + '%)';
-            changeEl.className = 'chart-price-change ' + (pct >= 0 ? 'positive' : 'negative');
-        }
-    }
-
-    // ── Render ──
-    function renderChart() {
-        if (candleData.length === 0) return;
         candleSeries.setData(candleData);
         volumeSeries.setData(volumeData);
         chart.timeScale().fitContent();
 
-        var last = candleData[candleData.length - 1];
-        document.getElementById('ohlcO').textContent = last.open.toFixed(6);
-        document.getElementById('ohlcH').textContent = last.high.toFixed(6);
-        document.getElementById('ohlcL').textContent  = last.low.toFixed(6);
-        document.getElementById('ohlcC').textContent = last.close.toFixed(6);
-        document.getElementById('ohlcV').textContent = Math.round(last.volume).toLocaleString();
-
-        updateChartHeader();
+        // Post last candle OHLCV to parent
+        if (candleData.length > 0) {
+            var last = candleData[candleData.length-1];
+            window.parent.postMessage({ type: 'ohlcv', o: last.open, h: last.high, l: last.low, cl: last.close, v: last.volume }, '*');
+        }
     }
 
-    // ── Parse single tx → trade ──
+    // Listen for messages from parent
+    window.addEventListener('message', function(e) {
+        if (!e.data || !e.data.type) return;
+        switch(e.data.type) {
+            case 'trades':
+                if (!ready) { init(); }
+                document.getElementById('msg').style.display = 'none';
+                allTrades = e.data.trades;
+                currentTF = e.data.tf || 60;
+                buildAndRender(allTrades, currentTF);
+                break;
+            case 'setTF':
+                currentTF = e.data.tf;
+                if (allTrades.length > 0) buildAndRender(allTrades, currentTF);
+                break;
+            case 'setVol':
+                showVolume = e.data.vol;
+                if (volumeSeries) volumeSeries.applyOptions({ visible: showVolume });
+                break;
+            case 'noData':
+                document.getElementById('msg').style.display = 'flex';
+                document.getElementById('msg').textContent = e.data.msg || 'No data';
+                break;
+        }
+    });
+
+    // If LightweightCharts loaded before any message arrives, init early
+    if (typeof LightweightCharts !== 'undefined') { init(); }
+    else { window.addEventListener('load', function(){ if (typeof LightweightCharts !== 'undefined') init(); }); }
+})();
+</script>
+</body>
+</html>`;
+
+    // ── Create iframe ──
+    var iframe = document.createElement('iframe');
+    iframe.style.width = '100%';
+    iframe.style.height = '100%';
+    iframe.style.border = 'none';
+    iframe.style.display = 'block';
+    iframe.setAttribute('sandbox', 'allow-scripts');
+    // Remove loading text, insert iframe
+    var loadingEl = container.querySelector('.chart-loading');
+    if (loadingEl) loadingEl.remove();
+    container.appendChild(iframe);
+    iframe.srcdoc = IFRAME_DOC;
+
+    // ── Parent state ──
+    var allTrades = [];
+    var currentTF = 60;
+    var showVolume = true;
+    var iframeReady = false;
+
+    // ── Listen for messages FROM iframe ──
+    window.addEventListener('message', function(e) {
+        if (!e.data || !e.data.type) return;
+        if (e.data.type === 'chartReady') {
+            iframeReady = true;
+            // If we already have trades, send them now
+            if (allTrades.length > 0) {
+                iframe.contentWindow.postMessage({ type: 'trades', trades: allTrades, tf: currentTF }, '*');
+            }
+        }
+        if (e.data.type === 'ohlcv') {
+            // Update OHLCV legend in parent
+            var d = e.data;
+            document.getElementById('ohlcO').textContent = d.o.toFixed(6);
+            document.getElementById('ohlcH').textContent = d.h.toFixed(6);
+            document.getElementById('ohlcL').textContent = d.l.toFixed(6);
+            document.getElementById('ohlcC').textContent = d.cl.toFixed(6);
+            document.getElementById('ohlcV').textContent = Math.round(d.v).toLocaleString();
+        }
+    });
+
+    // ── Send data to iframe (safe — waits for ready or queues) ──
+    function sendToChart(msg) {
+        try {
+            if (iframe.contentWindow) iframe.contentWindow.postMessage(msg, '*');
+        } catch(e) { /* iframe not ready yet */ }
+    }
+
+    // ── Parse single tx → trade (same proven logic as transaction table) ──
     function parseTrade(sig, txData) {
         if (!txData.result || !txData.result.meta) return null;
         var meta = txData.result.meta;
         if (!meta.postTokenBalances || !meta.preTokenBalances) return null;
 
-        // ── 404 token amount: largest single-account change ──
         var token404 = 0;
-        // Pass 1: accounts present in post
         meta.postTokenBalances.forEach(function(postB) {
             if (postB.mint !== TOKEN_CA) return;
             var preB = meta.preTokenBalances.find(function(p) { return p.accountIndex === postB.accountIndex && p.mint === TOKEN_CA; });
             var change = Math.abs(getHumanAmount(postB) - (preB ? getHumanAmount(preB) : 0));
             if (change > token404) token404 = change;
         });
-        // Pass 2: accounts that exist in pre but NOT in post (closed after full withdrawal)
         meta.preTokenBalances.forEach(function(preB) {
             if (preB.mint !== TOKEN_CA) return;
             if (!meta.postTokenBalances.find(function(p) { return p.accountIndex === preB.accountIndex && p.mint === TOKEN_CA; })) {
@@ -1102,16 +1115,13 @@ function startChart() {
         });
         if (token404 < 0.01) return null;
 
-        // ── XNT amount: largest single-account change for WXNT ──
         var xnt = 0;
-        // Pass 1: accounts present in post
         meta.postTokenBalances.forEach(function(postB) {
             if (postB.mint !== WXNT_ADDRESS) return;
             var preB = meta.preTokenBalances.find(function(p) { return p.accountIndex === postB.accountIndex && p.mint === WXNT_ADDRESS; });
             var change = Math.abs(getHumanAmount(postB) - (preB ? getHumanAmount(preB) : 0));
             if (change > xnt) xnt = change;
         });
-        // Pass 2: accounts closed after full withdrawal
         meta.preTokenBalances.forEach(function(preB) {
             if (preB.mint !== WXNT_ADDRESS) return;
             if (!meta.postTokenBalances.find(function(p) { return p.accountIndex === preB.accountIndex && p.mint === WXNT_ADDRESS; })) {
@@ -1119,7 +1129,6 @@ function startChart() {
                 if (amt > xnt) xnt = amt;
             }
         });
-        // Fallback: native lamport diffs — find the LARGEST diff (skip tiny rent/fee)
         if (xnt === 0 && meta.preBalances && meta.postBalances) {
             var maxDiff = 0;
             for (var j = 0; j < meta.preBalances.length; j++) {
@@ -1135,7 +1144,7 @@ function startChart() {
         return null;
     }
 
-    // ── Fetch trades — sequential, one tx at a time (proven reliable pattern) ──
+    // ── Fetch trades sequentially ──
     async function fetchTrades() {
         try {
             var sigRes = await fetch(X1_RPC, {
@@ -1145,7 +1154,7 @@ function startChart() {
             });
             var sigData = await sigRes.json();
             if (!sigData.result || sigData.result.length === 0) {
-                removeLoading(); showNoData('No transactions found'); return;
+                sendToChart({ type: 'noData', msg: 'No transactions found' }); return;
             }
 
             var sigs = sigData.result;
@@ -1153,55 +1162,50 @@ function startChart() {
             var MAX_TRADES = 100;
 
             for (var i = 0; i < sigs.length && trades.length < MAX_TRADES; i++) {
-                var sig = sigs[i];
                 try {
                     var txRes = await fetch(X1_RPC, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ jsonrpc: '2.0', id: 2, method: 'getTransaction', params: [sig.signature, { encoding: 'jsonParsed', maxSupportedTransactionVersion: 0 }] })
+                        body: JSON.stringify({ jsonrpc: '2.0', id: 2, method: 'getTransaction', params: [sigs[i].signature, { encoding: 'jsonParsed', maxSupportedTransactionVersion: 0 }] })
                     });
                     var txData = await txRes.json();
                     if (!txData || !txData.result) continue;
-                    var trade = parseTrade(sig, txData);
+                    var trade = parseTrade(sigs[i], txData);
                     if (trade) trades.push(trade);
-                } catch(e) {
-                    continue; // skip failed tx, keep scanning
-                }
+                } catch(e) { continue; }
             }
 
             trades.sort(function(a, b) { return a.time - b.time; });
             allTrades = trades;
             console.log('Chart: fetched', trades.length, 'trades from', sigs.length, 'signatures');
 
-            removeLoading();
-
             if (trades.length > 0) {
-                buildCandles(allTrades, currentTF);
-                renderChart();
+                sendToChart({ type: 'trades', trades: allTrades, tf: currentTF });
+                // Update header
+                var latest = allTrades[allTrades.length - 1];
+                var priceEl = document.getElementById('chartPrice');
+                var changeEl = document.getElementById('chartPriceChange');
+                if (priceEl) priceEl.textContent = latest.price.toFixed(6) + ' XNT';
+                var target24h = latest.time - 86400;
+                var price24h = null;
+                for (var k = 0; k < allTrades.length; k++) {
+                    if (allTrades[k].time >= target24h) { price24h = allTrades[k].price; break; }
+                }
+                if (changeEl && price24h && price24h > 0) {
+                    var pct = ((latest.price - price24h) / price24h) * 100;
+                    changeEl.textContent = '(' + (pct >= 0 ? '+' : '') + pct.toFixed(2) + '%)';
+                    changeEl.className = 'chart-price-change ' + (pct >= 0 ? 'positive' : 'negative');
+                }
             } else {
-                showNoData('No swap trades found yet');
+                sendToChart({ type: 'noData', msg: 'No swap trades found yet' });
             }
-
         } catch(e) {
             console.error('Chart fetch error:', e);
-            removeLoading(); showNoData('Error loading chart');
+            sendToChart({ type: 'noData', msg: 'Error loading chart' });
         }
     }
 
-    function removeLoading() {
-        var el = container.querySelector('.chart-loading');
-        if (el) el.remove();
-    }
-
-    function showNoData(msg) {
-        removeLoading();
-        var el = document.createElement('div');
-        el.className = 'chart-loading';
-        el.textContent = msg;
-        container.appendChild(el);
-    }
-
-    // ── Timeframe buttons ──
+    // ── Timeframe buttons — bind in parent, post to iframe ──
     document.querySelectorAll('.chart-tf-btn[data-tf]').forEach(function(btn) {
         btn.addEventListener('click', function() {
             var tf = parseInt(btn.getAttribute('data-tf'));
@@ -1211,10 +1215,7 @@ function startChart() {
             btn.classList.add('active');
             var labels = {1:'1m', 5:'5m', 15:'15m', 60:'1h', 240:'4h', 1440:'1d'};
             document.querySelector('.chart-timeframe-label').textContent = labels[tf] || tf+'m';
-            if (allTrades.length > 0) {
-                buildCandles(allTrades, currentTF);
-                renderChart();
-            }
+            sendToChart({ type: 'setTF', tf: currentTF });
         });
     });
 
@@ -1225,30 +1226,12 @@ function startChart() {
         volBtn.addEventListener('click', function() {
             showVolume = !showVolume;
             volBtn.classList.toggle('active', showVolume);
-            volumeSeries.applyOptions({ visible: showVolume });
+            sendToChart({ type: 'setVol', vol: showVolume });
         });
     }
 
-    // ── ResizeObserver — keeps chart synced to container on any resize ──
-    var resizeObs = new ResizeObserver(function(entries) {
-        if (!chart) return;
-        var rect = entries[0].contentRect;
-        if (rect.width > 0 && rect.height > 0) {
-            chart.resize(rect.width, rect.height);
-        }
-    });
-    resizeObs.observe(container);
-
-    // ── Initial fetch ──
+    // ── Initial fetch + 60s refresh ──
     fetchTrades();
+    setInterval(fetchTrades, 60000);
 
-    // ── Refresh every 60s ──
-    setInterval(function() { fetchTrades(); }, 60000);
-
-    }); // end requestAnimationFrame
-}
-
-// Start chart (waits for LightweightCharts CDN)
-if (document.getElementById('chartContainer')) {
-    startChart();
-}
+})();
