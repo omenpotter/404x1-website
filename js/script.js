@@ -43,13 +43,11 @@ if (connectX1Wallet) {
     connectX1Wallet.addEventListener('click', async () => {
         try {
             if (typeof window.x1Wallet !== 'undefined') {
-                // X1 Wallet detected
                 const response = await window.x1Wallet.connect();
                 walletAddress = response.publicKey.toString();
                 walletType = 'X1';
                 handleWalletConnected();
             } else {
-                // X1 Wallet not installed
                 if (confirm('X1 Wallet is not installed. Would you like to install it now?')) {
                     window.open('https://chromewebstore.google.com/detail/kcfmcpdmlchhbikbogddmgopmjbflnae', '_blank');
                 }
@@ -122,16 +120,11 @@ if (connectMetaMaskWallet) {
 
 function handleWalletConnected() {
     isConnected = true;
-    
-    // Check if user already has username
     const userData = localStorage.getItem(`404x1_user_${walletAddress}`);
-    
     if (userData) {
-        // User exists, log them in
         const user = JSON.parse(userData);
         loginUser(user);
     } else {
-        // New user, show username setup
         document.querySelectorAll('.wallet-btn').forEach(btn => btn.style.display = 'none');
         usernameSetup.classList.remove('hidden');
     }
@@ -142,28 +135,23 @@ if (confirmUsernameBtn) {
     confirmUsernameBtn.addEventListener('click', () => {
         const chatName = chatNameInput.value.trim();
         const gameName = gameNameInput.value.trim();
-        
-        // Validate usernames
         const usernameRegex = /^[a-zA-Z0-9_]{3,16}$/;
         
         if (!usernameRegex.test(chatName)) {
             alert('Chat name must be 3-16 characters (letters, numbers, underscore only)');
             return;
         }
-        
         if (!usernameRegex.test(gameName)) {
             alert('Game name must be 3-16 characters (letters, numbers, underscore only)');
             return;
         }
         
-        // Check reserved words
         const reservedWords = ['admin', 'mod', 'moderator', 'system', 'bot', 'null', 'undefined'];
         if (reservedWords.includes(chatName.toLowerCase()) || reservedWords.includes(gameName.toLowerCase())) {
             alert('This username is reserved. Please choose another.');
             return;
         }
         
-        // Create user object
         const userData = {
             walletAddress: walletAddress,
             walletType: walletType,
@@ -177,33 +165,22 @@ if (confirmUsernameBtn) {
             isTrusted: false
         };
         
-        // Save permanently (CANNOT BE CHANGED)
         localStorage.setItem(`404x1_user_${walletAddress}`, JSON.stringify(userData));
         localStorage.setItem('404x1_current_user', JSON.stringify(userData));
-        
-        // Login user
         loginUser(userData);
     });
 }
 
 function loginUser(userData) {
-    // Update UI
     if (authBtn) {
         authBtn.textContent = `${userData.chatName.substring(0, 8)}...`;
     }
-    
-    // Close modal
     authModal.classList.remove('active');
-    
-    // Store current session
     localStorage.setItem('404x1_current_user', JSON.stringify(userData));
-    
-    // Show success
     console.log('User logged in:', userData);
     alert(`Welcome ${userData.chatName}! Your ${userData.walletType} wallet is connected.`);
 }
 
-// Check if user is already connected
 function checkAuth() {
     const currentUser = localStorage.getItem('404x1_current_user');
     if (currentUser) {
@@ -218,25 +195,20 @@ function checkAuth() {
 function createMatrixEffect() {
     const matrixBg = document.getElementById('matrixBg');
     if (!matrixBg) return;
-    
     const chars = '404ERRORX1SVMNOTFOUND01';
     const columns = Math.floor(window.innerWidth / 30);
-    
     for (let i = 0; i < columns; i++) {
         const column = document.createElement('div');
         column.className = 'matrix-column';
         column.style.left = `${i * 30 + Math.random() * 20}px`;
         column.style.animationDuration = `${Math.random() * 8 + 12}s`;
         column.style.animationDelay = `${Math.random() * 5}s`;
-        
-        // Generate random vertical characters
         let text = '';
         const numChars = Math.floor(Math.random() * 15) + 20;
         for (let j = 0; j < numChars; j++) {
             text += chars[Math.floor(Math.random() * chars.length)];
         }
         column.textContent = text;
-        
         matrixBg.appendChild(column);
     }
 }
@@ -257,11 +229,8 @@ if (copyBtn && caAddress) {
         try {
             await navigator.clipboard.writeText(caAddress.textContent);
             copyIcon.textContent = '✅';
-            setTimeout(() => {
-                copyIcon.textContent = '📋';
-            }, 2000);
+            setTimeout(() => { copyIcon.textContent = '📋'; }, 2000);
         } catch (err) {
-            // Fallback for older browsers
             const textArea = document.createElement('textarea');
             textArea.value = caAddress.textContent;
             document.body.appendChild(textArea);
@@ -269,43 +238,32 @@ if (copyBtn && caAddress) {
             document.execCommand('copy');
             document.body.removeChild(textArea);
             copyIcon.textContent = '✅';
-            setTimeout(() => {
-                copyIcon.textContent = '📋';
-            }, 2000);
+            setTimeout(() => { copyIcon.textContent = '📋'; }, 2000);
         }
     });
 }
 
-// Token Data Integration - X1 RPC & xDEX API
+// ─── Token Data Integration ─────────────────────────────────────────────────
 const TOKEN_CA = '4o4UheANLdqF4gSV4zWTbCTCercQNSaTm6nVcDetzPb2';
-const WXNT_ADDRESS = 'So11111111111111111111111111111111111111112'; // Native SOL equivalent on X1
+const WXNT_ADDRESS = 'So11111111111111111111111111111111111111112';
 const X1_RPC = 'https://rpc.mainnet.x1.xyz/';
 
 let currentPrice = null;
-let tokenDecimals = 9; // Default, will be updated
+let tokenDecimals = 9;
+let poolTokenAccount404 = null;
+let poolTokenAccountXNT = null;
 
-// Pool token account addresses — discovered from first swap tx, then cached
-let poolTokenAccount404 = null;  // pool's 404 reserve account
-let poolTokenAccountXNT = null;  // pool's WXNT reserve account
-
-// Fetch Token Price from xDEX CPMM pool reserves
-// xDEX is a CPMM: price = XNT_reserve / 404_reserve
-// We read both reserve balances directly from X1 RPC — no external API needed
 async function fetchTokenPrice() {
     const priceEl = document.getElementById('priceXNT');
-
     try {
-        // If we don't have pool account addresses yet, discover them from a recent swap tx
         if (!poolTokenAccount404 || !poolTokenAccountXNT) {
             await discoverPoolAccounts();
         }
-
         if (!poolTokenAccount404 || !poolTokenAccountXNT) {
             console.log('Pool accounts not yet discovered — waiting for first tx');
             return null;
         }
 
-        // Read both reserve balances in parallel
         const [res404, resXNT] = await Promise.all([
             fetch(X1_RPC, {
                 method: 'POST',
@@ -321,7 +279,6 @@ async function fetchTokenPrice() {
 
         const data404 = await res404.json();
         const dataXNT = await resXNT.json();
-
         const reserve404 = parseFloat(data404.result?.value?.uiAmount || 0);
         const reserveXNT = parseFloat(dataXNT.result?.value?.uiAmount || 0);
 
@@ -345,8 +302,6 @@ async function fetchTokenPrice() {
     return currentPrice;
 }
 
-// Discover pool token account addresses from a recent swap transaction
-// The pool's 404 and WXNT accounts appear in token balances with owner = pool authority
 async function discoverPoolAccounts() {
     try {
         const sigRes = await fetch(X1_RPC, {
@@ -369,7 +324,6 @@ async function discoverPoolAccounts() {
             const meta = txData.result.meta;
             const allBalances = [...(meta.postTokenBalances || []), ...(meta.preTokenBalances || [])];
 
-            // Find the account that holds 404 tokens with the LARGEST balance — that's the pool reserve
             let best404 = null, best404Amt = 0;
             let bestXNT = null, bestXNTAmt = 0;
 
@@ -384,9 +338,7 @@ async function discoverPoolAccounts() {
                 }
             });
 
-            // Pool reserve accounts are owned by the same authority and have large balances
             if (best404 && bestXNT && best404.owner === bestXNT.owner) {
-                // Found matching pool — extract the token account pubkeys from accountKeys
                 const accountKeys = txData.result.transaction.message.accountKeys.map(k => typeof k === 'string' ? k : k.pubkey);
                 poolTokenAccount404 = accountKeys[best404.accountIndex];
                 poolTokenAccountXNT = accountKeys[bestXNT.accountIndex];
@@ -399,27 +351,17 @@ async function discoverPoolAccounts() {
     }
 }
 
-// Fetch Token Supply
 async function fetchTokenSupply() {
     try {
         const response = await fetch(X1_RPC, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                jsonrpc: '2.0',
-                id: 1,
-                method: 'getTokenSupply',
-                params: [TOKEN_CA]
-            })
+            body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'getTokenSupply', params: [TOKEN_CA] })
         });
-
         const data = await response.json();
-        console.log('Token Supply Response:', data);
-        
         if (data.result && data.result.value) {
             tokenDecimals = data.result.value.decimals;
-            const supply = parseFloat(data.result.value.amount) / Math.pow(10, tokenDecimals);
-            return supply;
+            return parseFloat(data.result.value.amount) / Math.pow(10, tokenDecimals);
         }
     } catch (error) {
         console.error('Error fetching supply:', error);
@@ -427,7 +369,6 @@ async function fetchTokenSupply() {
     return null;
 }
 
-// Fetch ALL Token Holders using getProgramAccounts + getMultipleAccounts
 async function fetchAllHolders() {
     const holdersEl = document.getElementById('holders');
     const holderList = document.getElementById('holderList');
@@ -437,42 +378,24 @@ async function fetchAllHolders() {
     holderList.innerHTML = '<div class="loading-more">Discovering token accounts...</div>';
 
     try {
-        // Step 1: Get ALL token accounts for this mint using getProgramAccounts
-        // This is how you discover every account holding this token
         const TOKEN_PROGRAM_2022 = 'TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb';
         const TOKEN_PROGRAM_LEGACY = 'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA';
-
         let allAccounts = [];
 
-        // Try Token-2022 program first (404 uses Token-2022 — immutable metadata)
-        // IMPORTANT: Token-2022 accounts are NOT 165 bytes — they have extension data
-        // so we must NOT use dataSize filter for Token-2022
         for (const [programId, useDataSize] of [
-            [TOKEN_PROGRAM_2022, false],   // Token-2022: variable size, no dataSize filter
-            [TOKEN_PROGRAM_LEGACY, true]   // Legacy: fixed 165 bytes
+            [TOKEN_PROGRAM_2022, false],
+            [TOKEN_PROGRAM_LEGACY, true]
         ]) {
             try {
-                const filters = [
-                    { memcmp: { offset: 0, bytes: TOKEN_CA } }
-                ];
-                if (useDataSize) {
-                    filters.push({ dataSize: 165 });
-                }
+                const filters = [{ memcmp: { offset: 0, bytes: TOKEN_CA } }];
+                if (useDataSize) filters.push({ dataSize: 165 });
 
                 const res = await fetch(X1_RPC, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        jsonrpc: '2.0',
-                        id: 1,
-                        method: 'getProgramAccounts',
-                        params: [
-                            programId,
-                            {
-                                encoding: 'jsonParsed',
-                                filters: filters
-                            }
-                        ]
+                        jsonrpc: '2.0', id: 1, method: 'getProgramAccounts',
+                        params: [programId, { encoding: 'jsonParsed', filters: filters }]
                     })
                 });
                 const data = await res.json();
@@ -485,7 +408,6 @@ async function fetchAllHolders() {
             }
         }
 
-        // If getProgramAccounts returned nothing (some RPCs block it), fall back to getTokenLargestAccounts
         if (allAccounts.length === 0) {
             console.log('getProgramAccounts returned nothing, falling back to getTokenLargestAccounts...');
             holderList.innerHTML = '<div class="loading-more">Fetching top holders...</div>';
@@ -493,23 +415,13 @@ async function fetchAllHolders() {
             const res = await fetch(X1_RPC, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    jsonrpc: '2.0',
-                    id: 1,
-                    method: 'getTokenLargestAccounts',
-                    params: [TOKEN_CA, { commitment: 'confirmed', limit: 500 }]
-                })
+                body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'getTokenLargestAccounts', params: [TOKEN_CA, { commitment: 'confirmed', limit: 500 }] })
             });
             const data = await res.json();
             console.log('getTokenLargestAccounts returned:', data.result ? data.result.value.length : 0);
 
             if (data.result && data.result.value && data.result.value.length > 0) {
-                // Already parsed — render directly
-                renderHolders(data.result.value.map(acc => ({
-                    address: acc.address,
-                    amount: acc.amount,
-                    uiAmount: acc.uiAmount
-                })));
+                renderHolders(data.result.value.map(acc => ({ address: acc.address, amount: acc.amount, uiAmount: acc.uiAmount })));
                 return data.result.value.length;
             }
             holdersEl.textContent = 'No holders found';
@@ -517,8 +429,6 @@ async function fetchAllHolders() {
             return 0;
         }
 
-        // Step 2: We have account addresses from getProgramAccounts — extract balances
-        // getProgramAccounts with jsonParsed already gives us the parsed data inline
         const holders = [];
         for (const acc of allAccounts) {
             try {
@@ -527,23 +437,14 @@ async function fetchAllHolders() {
                     const amount = parsed.info.tokenAmount.amount;
                     const uiAmount = parsed.info.tokenAmount.uiAmount;
                     if (uiAmount > 0) {
-                        holders.push({
-                            address: acc.pubkey,
-                            amount: amount,
-                            uiAmount: uiAmount,
-                            owner: parsed.info.owner
-                        });
+                        holders.push({ address: acc.pubkey, amount: amount, uiAmount: uiAmount, owner: parsed.info.owner });
                     }
                 }
-            } catch (e) {
-                // skip malformed
-            }
+            } catch (e) { /* skip malformed */ }
         }
 
-        // Sort descending by amount
         holders.sort((a, b) => parseFloat(b.amount) - parseFloat(a.amount));
         console.log('Total holders with balance > 0:', holders.length);
-
         renderHolders(holders);
         return holders.length;
 
@@ -555,12 +456,9 @@ async function fetchAllHolders() {
     return 0;
 }
 
-// Render holder list into the DOM
 function renderHolders(holders) {
     const holdersEl = document.getElementById('holders');
     const holderList = document.getElementById('holderList');
-
-    // Total supply for percentage calc
     const totalSupply = holders.reduce((sum, h) => sum + parseFloat(h.amount), 0);
 
     holdersEl.textContent = `${holders.length} holders`;
@@ -568,23 +466,15 @@ function renderHolders(holders) {
 
     holders.forEach((holder, index) => {
         const amount = parseFloat(holder.amount) / Math.pow(10, tokenDecimals);
-        const percentage = totalSupply > 0
-            ? (parseFloat(holder.amount) / totalSupply * 100).toFixed(2)
-            : '0.00';
+        const percentage = totalSupply > 0 ? (parseFloat(holder.amount) / totalSupply * 100).toFixed(2) : '0.00';
 
-        // Format amount (33.17K style)
         let amountFormatted;
-        if (amount >= 1000000) {
-            amountFormatted = (amount / 1000000).toFixed(2) + 'M';
-        } else if (amount >= 1000) {
-            amountFormatted = (amount / 1000).toFixed(2) + 'K';
-        } else {
-            amountFormatted = amount.toFixed(2);
-        }
+        if (amount >= 1000000) amountFormatted = (amount / 1000000).toFixed(2) + 'M';
+        else if (amount >= 1000) amountFormatted = (amount / 1000).toFixed(2) + 'K';
+        else amountFormatted = amount.toFixed(2);
 
         const item = document.createElement('div');
         item.className = 'holder-item';
-        // Use owner address if available (from getProgramAccounts), else the account address
         const displayAddr = holder.owner || holder.address;
         item.innerHTML = `
             <span class="holder-rank">#${index + 1}</span>
@@ -598,21 +488,17 @@ function renderHolders(holders) {
     });
 }
 
-// Helper: safely get a human-readable token amount from a token balance entry
 // Token-2022 tokens return uiAmount as null in getTransaction — must compute manually
 function getHumanAmount(balanceEntry) {
     if (!balanceEntry || !balanceEntry.uiTokenAmount) return 0;
-    // uiAmount is populated for legacy tokens but NULL for Token-2022
     if (balanceEntry.uiTokenAmount.uiAmount != null) {
         return balanceEntry.uiTokenAmount.uiAmount;
     }
-    // Fallback: compute from raw amount + decimals
     const decimals = balanceEntry.uiTokenAmount.decimals || 9;
     const raw = balanceEntry.uiTokenAmount.amount || '0';
     return parseFloat(raw) / Math.pow(10, decimals);
 }
 
-// Fetch and Parse Detailed Transactions
 async function fetchDetailedTransactions() {
     const txList = document.getElementById('transactionList');
     if (!txList) return;
@@ -624,12 +510,7 @@ async function fetchDetailedTransactions() {
         const response = await fetch(X1_RPC, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                jsonrpc: '2.0',
-                id: 1,
-                method: 'getSignaturesForAddress',
-                params: [TOKEN_CA, { limit: 40 }]
-            })
+            body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'getSignaturesForAddress', params: [TOKEN_CA, { limit: 40 }] })
         });
 
         const data = await response.json();
@@ -640,18 +521,17 @@ async function fetchDetailedTransactions() {
             return;
         }
 
-        txList.innerHTML = ''; // clear loading
+        txList.innerHTML = '';
         let rendered = 0;
-        const TARGET = 20; // render up to 20 valid transactions
+        const TARGET = 20;
 
         for (let i = 0; i < data.result.length && rendered < TARGET; i++) {
             const sig = data.result[i];
             const txDetail = await fetchTransactionDetail(sig.signature);
-            if (!txDetail) continue; // skip pool-internal or unparseable
+            if (!txDetail) continue;
 
             rendered++;
 
-            // First valid tx: if pool price not yet set (accounts still being discovered), derive from this trade
             if (rendered === 1 && txDetail.price > 0 && !currentPrice) {
                 currentPrice = txDetail.price;
                 const priceEl = document.getElementById('priceXNT');
@@ -671,9 +551,7 @@ async function fetchDetailedTransactions() {
                     <div class="tx-date">${dateStr}</div>
                     <div class="tx-time">${timeStr}</div>
                 </div>
-                <div>
-                    <span class="tx-type ${txDetail.type}">${txDetail.type.toUpperCase()}</span>
-                </div>
+                <div><span class="tx-type ${txDetail.type}">${txDetail.type.toUpperCase()}</span></div>
                 <div class="tx-xnt">${txDetail.xntAmount}</div>
                 <div class="tx-404">${txDetail.tokenAmount}</div>
                 <div class="tx-price">${txDetail.price > 0 ? txDetail.price.toFixed(6) : '—'}</div>
@@ -693,18 +571,12 @@ async function fetchDetailedTransactions() {
     }
 }
 
-// Fetch single transaction detail
 async function fetchTransactionDetail(signature) {
     try {
         const response = await fetch(X1_RPC, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                jsonrpc: '2.0',
-                id: 1,
-                method: 'getTransaction',
-                params: [signature, { encoding: 'jsonParsed', maxSupportedTransactionVersion: 0 }]
-            })
+            body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'getTransaction', params: [signature, { encoding: 'jsonParsed', maxSupportedTransactionVersion: 0 }] })
         });
 
         const data = await response.json();
@@ -716,38 +588,32 @@ async function fetchTransactionDetail(signature) {
 
         const maker = tx.message.accountKeys[0]?.pubkey || 'Unknown';
 
-        // --- 404 token amount: find the LARGEST single-account change for this mint ---
-        // (In a swap, one account gains and one loses — we want the magnitude of the user-side change)
+        // 404 token amount — largest single-account change for this mint
         let maxTokenChange = 0;
-        let tokenChangeSign = 0; // +1 = buy, -1 = sell (from maker perspective)
+        let tokenChangeSign = 0;
 
         meta.postTokenBalances.forEach(postB => {
             if (postB.mint !== TOKEN_CA) return;
             const preB = meta.preTokenBalances.find(p => p.accountIndex === postB.accountIndex && p.mint === TOKEN_CA);
-            const preAmt = preB ? getHumanAmount(preB) : 0;
-            const postAmt = getHumanAmount(postB);
-            const change = postAmt - preAmt;
+            const change = getHumanAmount(postB) - (preB ? getHumanAmount(preB) : 0);
             if (Math.abs(change) > maxTokenChange) {
                 maxTokenChange = Math.abs(change);
                 tokenChangeSign = change > 0 ? 1 : -1;
             }
         });
-        // Also check pre-only accounts (closed in post)
+        // Pre-only accounts (closed in post)
         meta.preTokenBalances.forEach(preB => {
             if (preB.mint !== TOKEN_CA) return;
             if (!meta.postTokenBalances.find(p => p.accountIndex === preB.accountIndex)) {
                 const amt = getHumanAmount(preB);
-                if (amt > maxTokenChange) {
-                    maxTokenChange = amt;
-                    tokenChangeSign = -1; // account closed = tokens left
-                }
+                if (amt > maxTokenChange) { maxTokenChange = amt; tokenChangeSign = -1; }
             }
         });
 
         const tokenAmount = maxTokenChange;
-        if (tokenAmount < 0.01) return null; // no meaningful 404 movement
+        if (tokenAmount < 0.01) return null;
 
-        // Determine BUY/SELL: if maker's own 404 account increased → BUY
+        // BUY/SELL detection
         let type = 'swap';
         const makerPre = meta.preTokenBalances.find(b => b.mint === TOKEN_CA && b.owner === maker);
         const makerPost = meta.postTokenBalances.find(b => b.mint === TOKEN_CA && b.owner === maker);
@@ -757,78 +623,54 @@ async function fetchTransactionDetail(signature) {
             type = tokenChangeSign > 0 ? 'buy' : 'sell';
         }
 
-        // --- XNT amount: find wrapped XNT (So111...112) balance changes ---
-        // Must scan BOTH post and pre, because:
-        //   BUY:  pool's WXNT increases  → shows up in post  
-        //   SELL: pool's WXNT decreases  → account may only appear in pre (if zeroed/closed)
+        // XNT amount — dual-pass WXNT scanning
         let xntAmount = 0;
 
-        // Pass 1: accounts present in post (covers increases AND decreases where account survives)
+        // Pass 1: accounts present in post
         meta.postTokenBalances.forEach(postB => {
             if (postB.mint !== WXNT_ADDRESS) return;
             const preB = meta.preTokenBalances.find(p => p.accountIndex === postB.accountIndex && p.mint === WXNT_ADDRESS);
-            const preAmt = preB ? getHumanAmount(preB) : 0;
-            const postAmt = getHumanAmount(postB);
-            const change = Math.abs(postAmt - preAmt);
+            const change = Math.abs(getHumanAmount(postB) - (preB ? getHumanAmount(preB) : 0));
             if (change > xntAmount) xntAmount = change;
         });
 
-        // Pass 2: accounts that exist in pre but NOT in post (closed after full withdrawal)
+        // Pass 2: accounts closed after full withdrawal
         meta.preTokenBalances.forEach(preB => {
             if (preB.mint !== WXNT_ADDRESS) return;
-            const postB = meta.postTokenBalances.find(p => p.accountIndex === preB.accountIndex && p.mint === WXNT_ADDRESS);
-            if (!postB) {
-                // Account was closed — entire pre balance left this account
+            if (!meta.postTokenBalances.find(p => p.accountIndex === preB.accountIndex && p.mint === WXNT_ADDRESS)) {
                 const amt = getHumanAmount(preB);
                 if (amt > xntAmount) xntAmount = amt;
             }
         });
 
-        // Fallback: native lamport diffs (for non-xDEX swaps)
+        // Fallback: native lamport diffs
         if (xntAmount === 0 && meta.preBalances && meta.postBalances) {
             for (let i = 0; i < meta.preBalances.length; i++) {
                 const diff = Math.abs(meta.postBalances[i] - meta.preBalances[i]) / 1e9;
-                if (diff > 0.0005) { // skip tiny rent/fee amounts
-                    xntAmount = diff;
-                    break;
-                }
+                if (diff > 0.0005) { xntAmount = diff; break; }
             }
         }
 
-        // Price per token for this specific transaction
         const price = (tokenAmount > 0 && xntAmount > 0) ? xntAmount / tokenAmount : 0;
 
-        return {
-            type,
-            xntAmount: xntAmount.toFixed(4),
-            tokenAmount: tokenAmount.toFixed(2),
-            price,
-            maker
-        };
+        return { type, xntAmount: xntAmount.toFixed(4), tokenAmount: tokenAmount.toFixed(2), price, maker };
     } catch (error) {
         console.error('Error fetching tx detail:', error);
     }
     return null;
 }
 
-// 404 token has fixed immutable supply — no need to fetch from chain
 const FIXED_SUPPLY = 404404;
 
-// Calculate Market Cap = price × fixed supply
 async function calculateMarketCap() {
     try {
         if (currentPrice) {
             const marketCap = currentPrice * FIXED_SUPPLY;
             let formatted;
-            if (marketCap >= 1000000) {
-                formatted = `${(marketCap / 1000000).toFixed(2)}M`;
-            } else if (marketCap >= 1000) {
-                formatted = `${(marketCap / 1000).toFixed(2)}K`;
-            } else if (marketCap >= 1) {
-                formatted = marketCap.toFixed(2);
-            } else {
-                formatted = marketCap.toFixed(4);
-            }
+            if (marketCap >= 1000000) formatted = `${(marketCap / 1000000).toFixed(2)}M`;
+            else if (marketCap >= 1000) formatted = `${(marketCap / 1000).toFixed(2)}K`;
+            else if (marketCap >= 1) formatted = marketCap.toFixed(2);
+            else formatted = marketCap.toFixed(4);
             document.getElementById('marketCap').textContent = `${formatted} XNT`;
             console.log(`MarketCap: ${currentPrice} × ${FIXED_SUPPLY} = ${marketCap} (${formatted} XNT)`);
         } else {
@@ -840,20 +682,12 @@ async function calculateMarketCap() {
     }
 }
 
-// Initialize all token data
 async function initializeTokenData() {
     if (!document.getElementById('priceXNT')) return;
-    
     console.log('Initializing token data...');
-    
     try {
-        // Price first
         await fetchTokenPrice();
-        
-        // Market cap (just math now, instant)
         await calculateMarketCap();
-        
-        // Holders and transactions can run in parallel
         fetchAllHolders();
         fetchDetailedTransactions();
     } catch (error) {
@@ -861,213 +695,63 @@ async function initializeTokenData() {
     }
 }
 
-// Auto-refresh functionality
 if (document.getElementById('priceXNT')) {
-    // Initial load
     initializeTokenData();
-
-    // Refresh price + market cap every 30 seconds (single interval)
     setInterval(async () => {
         await fetchTokenPrice();
         await calculateMarketCap();
     }, 30000);
 }
 
-// Feed tab switching (Transactions ↔ Holders)
+// Feed tab switching
 document.querySelectorAll('.feed-tab').forEach(tab => {
     tab.addEventListener('click', () => {
         const target = tab.getAttribute('data-feed');
-
-        // Update tab buttons
         document.querySelectorAll('.feed-tab').forEach(t => t.classList.remove('active'));
         tab.classList.add('active');
-
-        // Update panels
         document.querySelectorAll('.feed-panel').forEach(p => p.classList.remove('active'));
-        if (target === 'transactions') {
-            document.getElementById('feedTransactions').classList.add('active');
-        } else if (target === 'holders') {
-            document.getElementById('feedHolders').classList.add('active');
-        }
+        if (target === 'transactions') document.getElementById('feedTransactions').classList.add('active');
+        else if (target === 'holders') document.getElementById('feedHolders').classList.add('active');
     });
 });
 
-// ─── Live Candlestick Chart (TradingView Lightweight Charts) ───────────────
-// SES (X1 Wallet extension) freezes Element.prototype in the parent realm,
-// which strips getBoundingClientRect — LightweightCharts crashes on init.
-// 
-// WHY an iframe is needed: SES freezes prototypes, not just existing elements.
-// document.createElement('div') still inherits the frozen Element.prototype,
-// so even brand-new elements lack getBoundingClientRect. The only escape is a
-// separate realm — an iframe with its own unfrozen prototype chain.
+// ─── Live Candlestick Chart ─────────────────────────────────────────────────
+// X1 Wallet injects SES (lockdown-install.js) at document_start which freezes
+// Element.prototype in the parent realm — getBoundingClientRect disappears and
+// LightweightCharts crashes. Even newly created elements inherit the frozen
+// prototype, and srcdoc iframes share the parent's realm in Chrome, so SES
+// bleeds through sandbox="allow-scripts" on srcdoc.
 //
-// WHY allow-same-origin MUST be removed: a srcdoc iframe with allow-same-origin
-// shares the parent's origin AND realm. SES from the parent bleeds straight in.
-// sandbox="allow-scripts" alone gives a fully isolated realm.
-//
-// WHY the library is inlined: sandbox="allow-scripts" (without allow-same-origin)
-// blocks <script src="https://..."> — external fetches fail silently. The parent
-// has no sandbox and CAN fetch. So the parent downloads LightweightCharts, then
-// bakes the source directly into a blob URL iframe as an inline <script> block.
-//
-// WHY blob URL instead of srcdoc: srcdoc iframes share realm state with the parent
-// even with sandbox="allow-scripts" only. Chrome extensions injecting at document_start
-// (like X1 Wallet's SES lockdown) can still freeze Element.prototype inside them.
-// Blob URL iframes (iframe.src = blob:...) get a genuinely opaque origin and isolated
-// realm — no extension can reach into them.
-//
-// Parent fetches trades via RPC, posts data to iframe via postMessage.
-// Timeframe/volume button clicks are also posted to iframe.
+// Solution: blob URL iframe.
+//   • Parent fetches LWC source (parent has no sandbox, fetch works).
+//   • Builds a complete HTML document with LWC inlined as a <script> block.
+//   • Creates a Blob, gets a blob: URL, sets iframe.src = blobURL.
+//   • Blob URL iframes get a genuinely opaque origin and isolated realm —
+//     Chrome extensions cannot inject content scripts into them regardless of
+//     all_frames or match patterns, because blob: is not matched by <all_urls>.
+//   • sandbox="allow-scripts" (no allow-same-origin) further ensures isolation.
+//   • Parent posts trade data via postMessage; iframe posts OHLCV back.
 
 (function() {
     var container = document.getElementById('chartContainer');
     if (!container) return;
 
-    // ── Chart script that runs INSIDE the iframe ──
-    // LightweightCharts source will be injected BEFORE this block in the blob HTML.
-    var CHART_SCRIPT = `
-(function() {
-    var chart, candleSeries, volumeSeries;
-    var allTrades = [];
-    var currentTF = 60;
-    var showVolume = true;
-    var candleData = [], volumeData = [];
-    var ready = false;
-
-    function init() {
-        var el = document.getElementById('chart');
-        chart = LightweightCharts.createChart({
-            element: el,
-            width: el.clientWidth || 600,
-            height: el.clientHeight || 420,
-            layout: { background: { color: '#0a0e13' }, textColor: '#8892b0', fontSize: 11, fontFamily: "'Share Tech Mono', monospace" },
-            grid: { vertLines: { color: '#1a1f2e' }, horzLines: { color: '#1a1f2e' } },
-            crosshair: { mode: LightweightCharts.CrosshairMode.Normal },
-            timeScale: { ticksTargetTimestamp: true, timeVisible: true, secondsVisible: false, borderColor: '#1a1f2e' },
-            rightPriceScale: { borderColor: '#1a1f2e', entirelyVisible: true }
-        });
-
-        candleSeries = chart.addCandlestickSeries({
-            upColor: '#4ecca3', downColor: '#e74c3c',
-            wickUpColor: '#4ecca3', wickDownColor: '#e74c3c',
-            borderUpColor: '#4ecca3', borderDownColor: '#e74c3c'
-        });
-
-        chart.addPriceScale({ scaleId: 'volume', position: 'left', visible: false, scaleMargins: { top: 0.7, bottom: 0 } });
-        volumeSeries = chart.addHistogramSeries({ color: '#4ecca3', priceScaleId: 'volume', lastValuePoint: { visible: false } });
-        volumeSeries.applyOptions({ visible: showVolume });
-
-        // Crosshair → post OHLCV back to parent
-        chart.subscribeCrosshairMove(function(param) {
-            if (!param || !param.time || !candleSeries) return;
-            var c = param.seriesPrices.get(candleSeries);
-            if (!c) return;
-            var vol = volumeData.find(function(v){ return v.time === param.time; });
-            window.parent.postMessage({ type: 'ohlcv', o: c.open, h: c.high, l: c.low, cl: c.close, v: vol ? vol.value : 0 }, '*');
-        });
-
-        // ResizeObserver — keeps chart sized to container on any layout change
-        new ResizeObserver(function(entries) {
-            if (!chart) return;
-            var r = entries[0].contentRect;
-            if (r.width > 0 && r.height > 0) chart.resize(r.width, r.height);
-        }).observe(el);
-
-        ready = true;
-        console.log('[iframe] chartReady posted');
-        window.parent.postMessage({ type: 'chartReady' }, '*');
-    }
-
-    function buildAndRender(trades, tf) {
-        var tfSec = tf * 60;
-        var buckets = {};
-        trades.forEach(function(t) {
-            var b = Math.floor(t.time / tfSec) * tfSec;
-            if (!buckets[b]) buckets[b] = { time: b, open: t.price, high: t.price, low: t.price, close: t.price, volume: 0 };
-            var c = buckets[b];
-            if (t.price > c.high) c.high = t.price;
-            if (t.price < c.low) c.low = t.price;
-            c.close = t.price;
-            c.volume += t.token404;
-        });
-        var sorted = Object.keys(buckets).map(Number).sort(function(a,b){ return a-b; }).map(function(k){ return buckets[k]; });
-
-        // Gap fill — LightweightCharts needs contiguous timestamps
-        var filled = [];
-        for (var i = 0; i < sorted.length; i++) {
-            if (i > 0) {
-                var prev = sorted[i-1], t = prev.time + tfSec;
-                while (t < sorted[i].time) {
-                    filled.push({ time: t, open: prev.close, high: prev.close, low: prev.close, close: prev.close, volume: 0 });
-                    prev = filled[filled.length-1]; t += tfSec;
-                }
-            }
-            filled.push(sorted[i]);
-        }
-        candleData = filled;
-        volumeData = filled.map(function(c){ return { time: c.time, value: c.volume, color: c.close >= c.open ? '#4ecca344' : '#e74c3c44' }; });
-
-        candleSeries.setData(candleData);
-        volumeSeries.setData(volumeData);
-        chart.timeScale().fitContent();
-
-        console.log('[iframe] rendered ' + candleData.length + ' candles at tf=' + tf);
-
-        // Post last candle OHLCV to parent for the legend strip
-        if (candleData.length > 0) {
-            var last = candleData[candleData.length-1];
-            window.parent.postMessage({ type: 'ohlcv', o: last.open, h: last.high, l: last.low, cl: last.close, v: last.volume }, '*');
-        }
-    }
-
-    // Listen for messages from parent
-    window.addEventListener('message', function(e) {
-        if (!e.data || !e.data.type) return;
-        switch(e.data.type) {
-            case 'trades':
-                if (!ready) { init(); }
-                document.getElementById('msg').style.display = 'none';
-                allTrades = e.data.trades;
-                currentTF = e.data.tf || 60;
-                buildAndRender(allTrades, currentTF);
-                break;
-            case 'setTF':
-                currentTF = e.data.tf;
-                if (allTrades.length > 0) buildAndRender(allTrades, currentTF);
-                break;
-            case 'setVol':
-                showVolume = e.data.vol;
-                if (volumeSeries) volumeSeries.applyOptions({ visible: showVolume });
-                break;
-            case 'noData':
-                document.getElementById('msg').style.display = 'flex';
-                document.getElementById('msg').textContent = e.data.msg || 'No data';
-                break;
-        }
-    });
-
-    // LightweightCharts is inlined above this script — it's always available immediately
-    init();
-})();`;
-
-    // ── Parent state ──
+    // ── Single set of parent-side state ──
     var iframe = null;
     var allTrades = [];
     var currentTF = 60;
     var showVolume = true;
     var iframeReady = false;
-    var messageQueue = [];  // holds messages until iframe posts chartReady
+    var messageQueue = [];   // holds messages until iframe posts chartReady
 
-    // ── Send data to iframe — queues if not ready yet ──
-    // fetchTrades() often finishes before LWC initialises inside the iframe.
-    // The queue guarantees zero data loss regardless of the race.
+    // ── Send to iframe — queues if not ready ──
     function sendToChart(msg) {
         if (!iframeReady || !iframe) {
             messageQueue.push(msg);
             return;
         }
         try { iframe.contentWindow.postMessage(msg, '*'); }
-        catch(e) { /* iframe not yet accessible */ }
+        catch(e) { /* not yet accessible */ }
     }
 
     // ── Listen for messages FROM iframe ──
@@ -1091,52 +775,153 @@ document.querySelectorAll('.feed-tab').forEach(tab => {
         }
     });
 
-    // ── Fetch LightweightCharts source in the PARENT, then build the iframe ──
-    // The parent is not sandboxed → fetch works fine here.
-    // We inline the library source directly into a blob URL iframe so it needs
-    // no network access at all — which is good, because sandbox="allow-scripts"
-    // (without allow-same-origin) blocks external script loads.
+    // ── Chart script that runs INSIDE the blob iframe ──
+    var CHART_SCRIPT = [
+        '(function() {',
+        '  var chart, candleSeries, volumeSeries;',
+        '  var allTrades = [], currentTF = 60, showVolume = true;',
+        '  var candleData = [], volumeData = [];',
+        '',
+        '  function init() {',
+        '    var el = document.getElementById("chart");',
+        '    chart = LightweightCharts.createChart({',
+        '      element: el,',
+        '      width: el.clientWidth || 600,',
+        '      height: el.clientHeight || 420,',
+        '      layout: { background: { color: "#0a0e13" }, textColor: "#8892b0", fontSize: 11, fontFamily: "Share Tech Mono, monospace" },',
+        '      grid: { vertLines: { color: "#1a1f2e" }, horzLines: { color: "#1a1f2e" } },',
+        '      crosshair: { mode: LightweightCharts.CrosshairMode.Normal },',
+        '      timeScale: { ticksTargetTimestamp: true, timeVisible: true, secondsVisible: false, borderColor: "#1a1f2e" },',
+        '      rightPriceScale: { borderColor: "#1a1f2e", entirelyVisible: true }',
+        '    });',
+        '    candleSeries = chart.addCandlestickSeries({',
+        '      upColor: "#4ecca3", downColor: "#e74c3c",',
+        '      wickUpColor: "#4ecca3", wickDownColor: "#e74c3c",',
+        '      borderUpColor: "#4ecca3", borderDownColor: "#e74c3c"',
+        '    });',
+        '    chart.addPriceScale({ scaleId: "volume", position: "left", visible: false, scaleMargins: { top: 0.7, bottom: 0 } });',
+        '    volumeSeries = chart.addHistogramSeries({ color: "#4ecca3", priceScaleId: "volume", lastValuePoint: { visible: false } });',
+        '    volumeSeries.applyOptions({ visible: showVolume });',
+        '',
+        '    chart.subscribeCrosshairMove(function(param) {',
+        '      if (!param || !param.time || !candleSeries) return;',
+        '      var c = param.seriesPrices.get(candleSeries);',
+        '      if (!c) return;',
+        '      var vol = volumeData.find(function(v){ return v.time === param.time; });',
+        '      window.parent.postMessage({ type: "ohlcv", o: c.open, h: c.high, l: c.low, cl: c.close, v: vol ? vol.value : 0 }, "*");',
+        '    });',
+        '',
+        '    new ResizeObserver(function(entries) {',
+        '      if (!chart) return;',
+        '      var r = entries[0].contentRect;',
+        '      if (r.width > 0 && r.height > 0) chart.resize(r.width, r.height);',
+        '    }).observe(el);',
+        '',
+        '    console.log("[iframe] chartReady posted");',
+        '    window.parent.postMessage({ type: "chartReady" }, "*");',
+        '  }',
+        '',
+        '  function buildAndRender(trades, tf) {',
+        '    var tfSec = tf * 60;',
+        '    var buckets = {};',
+        '    trades.forEach(function(t) {',
+        '      var b = Math.floor(t.time / tfSec) * tfSec;',
+        '      if (!buckets[b]) buckets[b] = { time: b, open: t.price, high: t.price, low: t.price, close: t.price, volume: 0 };',
+        '      var c = buckets[b];',
+        '      if (t.price > c.high) c.high = t.price;',
+        '      if (t.price < c.low) c.low = t.price;',
+        '      c.close = t.price;',
+        '      c.volume += t.token404;',
+        '    });',
+        '    var sorted = Object.keys(buckets).map(Number).sort(function(a,b){ return a-b; }).map(function(k){ return buckets[k]; });',
+        '',
+        '    // Gap fill',
+        '    var filled = [];',
+        '    for (var i = 0; i < sorted.length; i++) {',
+        '      if (i > 0) {',
+        '        var prev = sorted[i-1], t = prev.time + tfSec;',
+        '        while (t < sorted[i].time) {',
+        '          filled.push({ time: t, open: prev.close, high: prev.close, low: prev.close, close: prev.close, volume: 0 });',
+        '          prev = filled[filled.length-1]; t += tfSec;',
+        '        }',
+        '      }',
+        '      filled.push(sorted[i]);',
+        '    }',
+        '    candleData = filled;',
+        '    volumeData = filled.map(function(c){ return { time: c.time, value: c.volume, color: c.close >= c.open ? "#4ecca344" : "#e74c3c44" }; });',
+        '',
+        '    candleSeries.setData(candleData);',
+        '    volumeSeries.setData(volumeData);',
+        '    chart.timeScale().fitContent();',
+        '    console.log("[iframe] rendered " + candleData.length + " candles at tf=" + tf);',
+        '',
+        '    if (candleData.length > 0) {',
+        '      var last = candleData[candleData.length-1];',
+        '      window.parent.postMessage({ type: "ohlcv", o: last.open, h: last.high, l: last.low, cl: last.close, v: last.volume }, "*");',
+        '    }',
+        '  }',
+        '',
+        '  window.addEventListener("message", function(e) {',
+        '    if (!e.data || !e.data.type) return;',
+        '    switch(e.data.type) {',
+        '      case "trades":',
+        '        document.getElementById("msg").style.display = "none";',
+        '        allTrades = e.data.trades;',
+        '        currentTF = e.data.tf || 60;',
+        '        buildAndRender(allTrades, currentTF);',
+        '        break;',
+        '      case "setTF":',
+        '        currentTF = e.data.tf;',
+        '        if (allTrades.length > 0) buildAndRender(allTrades, currentTF);',
+        '        break;',
+        '      case "setVol":',
+        '        showVolume = e.data.vol;',
+        '        if (volumeSeries) volumeSeries.applyOptions({ visible: showVolume });',
+        '        break;',
+        '      case "noData":',
+        '        document.getElementById("msg").style.display = "flex";',
+        '        document.getElementById("msg").textContent = e.data.msg || "No data";',
+        '        break;',
+        '    }',
+        '  });',
+        '',
+        '  // LWC is inlined above — call init() immediately',
+        '  init();',
+        '})();'
+    ].join('\n');
+
+    // ── Fetch LWC source in parent, then build blob iframe ──
     fetch('https://cdn.jsdelivr.net/npm/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js')
     .then(function(res) { return res.text(); })
     .then(function(lwcSource) {
         console.log('LightweightCharts source fetched, length=' + lwcSource.length);
 
-        // Build the full HTML with LWC inlined
-        var html = '<!DOCTYPE html><html><head><style>' +
+        var html =
+            '<!DOCTYPE html><html><head><style>' +
             '* { margin:0; padding:0; box-sizing:border-box; }' +
             'body { background:#0a0e13; overflow:hidden; width:100%; height:100%; }' +
             '#chart { width:100%; height:100%; }' +
             '#msg { position:absolute; inset:0; display:flex; align-items:center; justify-content:center;' +
-            '       color:#8892b0; font-family:"Share Tech Mono",monospace; font-size:0.9rem;' +
-            '       pointer-events:none; }' +
+            '       color:#8892b0; font-family:"Share Tech Mono",monospace; font-size:0.9rem; pointer-events:none; }' +
             '</style></head><body>' +
             '<div id="chart"></div>' +
             '<div id="msg">Loading chart...</div>' +
-            '<script>' + lwcSource + '</script>' +      // library inlined
-            '<script>' + CHART_SCRIPT + '</script>' +   // chart logic runs after library
+            '<script>' + lwcSource + '</script>' +
+            '<script>' + CHART_SCRIPT + '</script>' +
             '</body></html>';
 
-        // Use a blob URL instead of srcdoc.
-        // srcdoc iframes share realm state with the parent even with
-        // sandbox="allow-scripts" only — Chrome extensions injecting at
-        // document_start (like X1 Wallet's SES lockdown) can still affect them.
-        // Blob URL iframes get a genuinely opaque origin and a completely
-        // isolated realm that no extension can reach into.
         var blob = new Blob([html], { type: 'text/html' });
         var blobURL = URL.createObjectURL(blob);
 
         iframe = document.createElement('iframe');
-        iframe.style.width = '100%';
-        iframe.style.height = '100%';
-        iframe.style.border = 'none';
-        iframe.style.display = 'block';
-        iframe.setAttribute('sandbox', 'allow-scripts');   // NO allow-same-origin
+        iframe.style.cssText = 'width:100%;height:100%;border:none;display:block;';
+        iframe.setAttribute('sandbox', 'allow-scripts');
 
         var loadingEl = container.querySelector('.chart-loading');
         if (loadingEl) loadingEl.remove();
         container.appendChild(iframe);
 
-        iframe.src = blobURL;   // blob URL — NOT srcdoc
+        iframe.src = blobURL;
         console.log('Chart iframe created (blob URL, allow-scripts only, LWC inlined)');
     })
     .catch(function(err) {
@@ -1145,47 +930,7 @@ document.querySelectorAll('.feed-tab').forEach(tab => {
         if (loadingEl) loadingEl.textContent = 'Chart unavailable';
     });
 
-    // ── Parent state ──
-    var allTrades = [];
-    var currentTF = 60;
-    var showVolume = true;
-    var iframeReady = false;
-    var messageQueue = []; // queue messages until iframe is ready
-
-    // ── Listen for messages FROM iframe ──
-    window.addEventListener('message', function(e) {
-        if (!e.data || !e.data.type) return;
-        if (e.data.type === 'chartReady') {
-            iframeReady = true;
-            console.log('Chart iframe ready — flushing', messageQueue.length, 'queued messages');
-            // Flush all queued messages
-            messageQueue.forEach(function(msg) {
-                try { iframe.contentWindow.postMessage(msg, '*'); } catch(err) {}
-            });
-            messageQueue = [];
-        }
-        if (e.data.type === 'ohlcv') {
-            var d = e.data;
-            document.getElementById('ohlcO').textContent = d.o.toFixed(6);
-            document.getElementById('ohlcH').textContent = d.h.toFixed(6);
-            document.getElementById('ohlcL').textContent = d.l.toFixed(6);
-            document.getElementById('ohlcC').textContent = d.cl.toFixed(6);
-            document.getElementById('ohlcV').textContent = Math.round(d.v).toLocaleString();
-        }
-    });
-
-    // ── Send data to iframe — queues if not ready yet ──
-    function sendToChart(msg) {
-        if (!iframeReady) {
-            messageQueue.push(msg);
-            return;
-        }
-        try {
-            iframe.contentWindow.postMessage(msg, '*');
-        } catch(e) { /* iframe not ready yet */ }
-    }
-
-    // ── Parse single tx → trade (same proven logic as transaction table) ──
+    // ── Parse single tx → trade ──
     function parseTrade(sig, txData) {
         if (!txData.result || !txData.result.meta) return null;
         var meta = txData.result.meta;
@@ -1236,7 +981,7 @@ document.querySelectorAll('.feed-tab').forEach(tab => {
         return null;
     }
 
-    // ── Fetch trades sequentially ──
+    // ── Fetch trades sequentially (respects RPC rate limits) ──
     async function fetchTrades() {
         try {
             var sigRes = await fetch(X1_RPC, {
@@ -1246,7 +991,8 @@ document.querySelectorAll('.feed-tab').forEach(tab => {
             });
             var sigData = await sigRes.json();
             if (!sigData.result || sigData.result.length === 0) {
-                sendToChart({ type: 'noData', msg: 'No transactions found' }); return;
+                sendToChart({ type: 'noData', msg: 'No transactions found' });
+                return;
             }
 
             var sigs = sigData.result;
@@ -1269,15 +1015,16 @@ document.querySelectorAll('.feed-tab').forEach(tab => {
 
             trades.sort(function(a, b) { return a.time - b.time; });
             allTrades = trades;
-            console.log('Chart: fetched', trades.length, 'trades from', sigs.length, 'signatures');
+            console.log('Chart: fetched ' + trades.length + ' trades from ' + sigs.length + ' signatures');
 
             if (trades.length > 0) {
                 sendToChart({ type: 'trades', trades: allTrades, tf: currentTF });
-                // Update header
+
                 var latest = allTrades[allTrades.length - 1];
                 var priceEl = document.getElementById('chartPrice');
                 var changeEl = document.getElementById('chartPriceChange');
                 if (priceEl) priceEl.textContent = latest.price.toFixed(6) + ' XNT';
+
                 var target24h = latest.time - 86400;
                 var price24h = null;
                 for (var k = 0; k < allTrades.length; k++) {
@@ -1297,7 +1044,7 @@ document.querySelectorAll('.feed-tab').forEach(tab => {
         }
     }
 
-    // ── Timeframe buttons — bind in parent, post to iframe ──
+    // ── Timeframe buttons — bound in parent, posted to iframe ──
     document.querySelectorAll('.chart-tf-btn[data-tf]').forEach(function(btn) {
         btn.addEventListener('click', function() {
             var tf = parseInt(btn.getAttribute('data-tf'));
@@ -1322,7 +1069,7 @@ document.querySelectorAll('.feed-tab').forEach(tab => {
         });
     }
 
-    // ── Initial fetch + 60s refresh ──
+    // ── Initial fetch + 60s auto-refresh ──
     fetchTrades();
     setInterval(fetchTrades, 60000);
 
