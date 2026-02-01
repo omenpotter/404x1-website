@@ -92,15 +92,37 @@
                     </div>
                 </div>
 
-                <!-- TradingView Chart -->
+                <!-- Live Candlestick Chart -->
                 <div class="tradingview-container">
-                    <div class="tradingview-widget" id="tradingview-widget">
-                        <div style="text-align: center; padding: 3rem; color: var(--text-muted);">
-                            📊 TradingView Chart
-                            <br><br>
-                            <small>Chart integration placeholder - Connect to TradingView API or embed widget</small>
+                    <div class="chart-header">
+                        <div class="chart-pair-label">
+                            <span class="chart-pair-name">WXNT / 404</span>
+                            <span class="chart-dot">●</span>
+                            <span class="chart-timeframe-label">1h</span>
+                        </div>
+                        <div class="chart-price-display">
+                            <span class="chart-price" id="chartPrice">Loading...</span>
+                            <span class="chart-price-change" id="chartPriceChange">(0%)</span>
                         </div>
                     </div>
+                    <div class="chart-timeframes">
+                        <button class="chart-tf-btn" data-tf="1">1m</button>
+                        <button class="chart-tf-btn" data-tf="5">5m</button>
+                        <button class="chart-tf-btn" data-tf="15">15m</button>
+                        <button class="chart-tf-btn active" data-tf="60">1h</button>
+                        <button class="chart-tf-btn" data-tf="240">4h</button>
+                        <button class="chart-tf-btn" data-tf="1440">1d</button>
+                        <span class="chart-tf-sep">⋮</span>
+                        <button class="chart-tf-btn chart-vol-toggle" id="volToggle">Vol</button>
+                    </div>
+                    <div class="chart-ohlcv" id="chartOHLCV">
+                        <span>O<span class="ohlc-val" id="ohlcO">0.00</span></span>
+                        <span>H<span class="ohlc-val ohlc-high" id="ohlcH">0.00</span></span>
+                        <span>L<span class="ohlc-val ohlc-low" id="ohlcL">0.00</span></span>
+                        <span>C<span class="ohlc-val" id="ohlcC">0.00</span></span>
+                        <span>Volume <span class="ohlc-val" id="ohlcV">0</span></span>
+                    </div>
+                    <div id="chartContainer" class="chart-canvas-container"></div>
                 </div>
 
                 <!-- Action Buttons -->
@@ -298,6 +320,7 @@
         </div>
     </div>
 
+    <script src="https://cdn.jsdelivr.net/npm/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
     <script src="js/script.js"></script>
 </body>
 </html>
