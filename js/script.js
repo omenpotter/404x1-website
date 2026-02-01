@@ -908,7 +908,13 @@ document.querySelectorAll('.feed-tab').forEach(tab => {
 // WHY the library is inlined: sandbox="allow-scripts" (without allow-same-origin)
 // blocks <script src="https://..."> — external fetches fail silently. The parent
 // has no sandbox and CAN fetch. So the parent downloads LightweightCharts, then
-// bakes the source directly into the srcdoc as an inline <script> block.
+// bakes the source directly into a blob URL iframe as an inline <script> block.
+//
+// WHY blob URL instead of srcdoc: srcdoc iframes share realm state with the parent
+// even with sandbox="allow-scripts" only. Chrome extensions injecting at document_start
+// (like X1 Wallet's SES lockdown) can still freeze Element.prototype inside them.
+// Blob URL iframes (iframe.src = blob:...) get a genuinely opaque origin and isolated
+// realm — no extension can reach into them.
 //
 // Parent fetches trades via RPC, posts data to iframe via postMessage.
 // Timeframe/volume button clicks are also posted to iframe.
@@ -918,7 +924,7 @@ document.querySelectorAll('.feed-tab').forEach(tab => {
     if (!container) return;
 
     // ── Chart script that runs INSIDE the iframe ──
-    // LightweightCharts source will be injected BEFORE this block in the srcdoc.
+    // LightweightCharts source will be injected BEFORE this block in the blob HTML.
     var CHART_SCRIPT = `
 (function() {
     var chart, candleSeries, volumeSeries;
@@ -1087,7 +1093,7 @@ document.querySelectorAll('.feed-tab').forEach(tab => {
 
     // ── Fetch LightweightCharts source in the PARENT, then build the iframe ──
     // The parent is not sandboxed → fetch works fine here.
-    // We inline the library source directly into the srcdoc so the iframe needs
+    // We inline the library source directly into a blob URL iframe so it needs
     // no network access at all — which is good, because sandbox="allow-scripts"
     // (without allow-same-origin) blocks external script loads.
     fetch('https://cdn.jsdelivr.net/npm/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js')
@@ -1095,8 +1101,8 @@ document.querySelectorAll('.feed-tab').forEach(tab => {
     .then(function(lwcSource) {
         console.log('LightweightCharts source fetched, length=' + lwcSource.length);
 
-        // Build the srcdoc with LWC inlined
-        var srcdoc = '<!DOCTYPE html><html><head><style>' +
+        // Build the full HTML with LWC inlined
+        var html = '<!DOCTYPE html><html><head><style>' +
             '* { margin:0; padding:0; box-sizing:border-box; }' +
             'body { background:#0a0e13; overflow:hidden; width:100%; height:100%; }' +
             '#chart { width:100%; height:100%; }' +
@@ -1106,11 +1112,19 @@ document.querySelectorAll('.feed-tab').forEach(tab => {
             '</style></head><body>' +
             '<div id="chart"></div>' +
             '<div id="msg">Loading chart...</div>' +
-            '<script>' + lwcSource + '<\/script>' +   // library inlined — no <script src>
-            '<script>' + CHART_SCRIPT + '<\/script>' + // chart logic runs after library
+            '<script>' + lwcSource + '</script>' +      // library inlined
+            '<script>' + CHART_SCRIPT + '</script>' +   // chart logic runs after library
             '</body></html>';
 
-        // Create iframe with allow-scripts ONLY — fully isolated realm
+        // Use a blob URL instead of srcdoc.
+        // srcdoc iframes share realm state with the parent even with
+        // sandbox="allow-scripts" only — Chrome extensions injecting at
+        // document_start (like X1 Wallet's SES lockdown) can still affect them.
+        // Blob URL iframes get a genuinely opaque origin and a completely
+        // isolated realm that no extension can reach into.
+        var blob = new Blob([html], { type: 'text/html' });
+        var blobURL = URL.createObjectURL(blob);
+
         iframe = document.createElement('iframe');
         iframe.style.width = '100%';
         iframe.style.height = '100%';
@@ -1122,8 +1136,8 @@ document.querySelectorAll('.feed-tab').forEach(tab => {
         if (loadingEl) loadingEl.remove();
         container.appendChild(iframe);
 
-        iframe.srcdoc = srcdoc;
-        console.log('Chart iframe created (allow-scripts only, LWC inlined)');
+        iframe.src = blobURL;   // blob URL — NOT srcdoc
+        console.log('Chart iframe created (blob URL, allow-scripts only, LWC inlined)');
     })
     .catch(function(err) {
         console.error('Failed to fetch LightweightCharts:', err);
