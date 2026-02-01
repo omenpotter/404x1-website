@@ -1062,6 +1062,18 @@ body {
     height: 420px;
     position: relative;
 }
+.chart-loading {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-muted);
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 0.9rem;
+    pointer-events: none;
+    z-index: 0;
+}
 
 /* Action Buttons */
 .action-buttons {
