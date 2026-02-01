@@ -1052,7 +1052,7 @@ body { background:#0a0e13; overflow:hidden; width:100%; height:100%; }
     iframe.style.height = '100%';
     iframe.style.border = 'none';
     iframe.style.display = 'block';
-    iframe.setAttribute('sandbox', 'allow-scripts');
+    iframe.setAttribute('sandbox', 'allow-scripts allow-same-origin');
     // Remove loading text, insert iframe
     var loadingEl = container.querySelector('.chart-loading');
     if (loadingEl) loadingEl.remove();
@@ -1064,19 +1064,21 @@ body { background:#0a0e13; overflow:hidden; width:100%; height:100%; }
     var currentTF = 60;
     var showVolume = true;
     var iframeReady = false;
+    var messageQueue = []; // queue messages until iframe is ready
 
     // ── Listen for messages FROM iframe ──
     window.addEventListener('message', function(e) {
         if (!e.data || !e.data.type) return;
         if (e.data.type === 'chartReady') {
             iframeReady = true;
-            // If we already have trades, send them now
-            if (allTrades.length > 0) {
-                iframe.contentWindow.postMessage({ type: 'trades', trades: allTrades, tf: currentTF }, '*');
-            }
+            console.log('Chart iframe ready — flushing', messageQueue.length, 'queued messages');
+            // Flush all queued messages
+            messageQueue.forEach(function(msg) {
+                try { iframe.contentWindow.postMessage(msg, '*'); } catch(err) {}
+            });
+            messageQueue = [];
         }
         if (e.data.type === 'ohlcv') {
-            // Update OHLCV legend in parent
             var d = e.data;
             document.getElementById('ohlcO').textContent = d.o.toFixed(6);
             document.getElementById('ohlcH').textContent = d.h.toFixed(6);
@@ -1086,10 +1088,14 @@ body { background:#0a0e13; overflow:hidden; width:100%; height:100%; }
         }
     });
 
-    // ── Send data to iframe (safe — waits for ready or queues) ──
+    // ── Send data to iframe — queues if not ready yet ──
     function sendToChart(msg) {
+        if (!iframeReady) {
+            messageQueue.push(msg);
+            return;
+        }
         try {
-            if (iframe.contentWindow) iframe.contentWindow.postMessage(msg, '*');
+            iframe.contentWindow.postMessage(msg, '*');
         } catch(e) { /* iframe not ready yet */ }
     }
 
