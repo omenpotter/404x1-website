@@ -892,64 +892,303 @@ document.querySelectorAll('.feed-tab').forEach(tab => {
     });
 });
 
-// TradingView Chart Integration
-function initTradingViewChart() {
-    const chartContainer = document.getElementById('tradingview-widget');
-    if (!chartContainer) return;
-    
-    // Create TradingView widget
-    const script = document.createElement('script');
-    script.src = 'https://s3.tradingview.com/tv.js';
-    script.async = true;
-    script.onload = () => {
-        if (typeof TradingView !== 'undefined') {
-            new TradingView.widget({
-                autosize: true,
-                symbol: 'CRYPTO:XNTUSD', // Fallback symbol - customize as needed
-                interval: '15',
-                timezone: 'Etc/UTC',
-                theme: 'dark',
-                style: '1',
-                locale: 'en',
-                toolbar_bg: '#0a0e13',
-                enable_publishing: false,
-                backgroundColor: '#0a0e13',
-                gridColor: '#1a1f2e',
-                hide_top_toolbar: false,
-                hide_legend: false,
-                save_image: false,
-                container_id: 'tradingview-widget'
+// ─── Live Candlestick Chart (TradingView Lightweight Charts) ───────────────
+
+function startChart() {
+    const container = document.getElementById('chartContainer');
+    if (!container || typeof LightweightCharts === 'undefined') {
+        // CDN not loaded yet — retry in 200ms
+        setTimeout(startChart, 200);
+        return;
+    }
+
+    // ── State ──
+    let chart, candleSeries, volumeSeries;
+    let currentTF = 60; // minutes
+    let showVolume = true;
+    let allTrades = []; // raw {time, price, xnt, token404} from parsed txs
+    let candleData = [];
+    let volumeData = [];
+
+    // ── Create chart ──
+    chart = LightweightCharts.createChart({
+        element: container,
+        width: container.clientWidth,
+        height: 420,
+        layout: {
+            background: { color: '#0a0e13' },
+            textColor: '#8892b0',
+            fontSize: 11,
+            fontFamily: "'Share Tech Mono', monospace"
+        },
+        grid: {
+            vertLines: { color: '#1a1f2e', visible: true },
+            horzLines: { color: '#1a1f2e', visible: true }
+        },
+        crosshair: { mode: LightweightCharts.CrosshairMode.Normal },
+        timeScale: {
+            ticksTargetTimestamp: true,
+            timeVisible: true,
+            secondsVisible: false,
+            borderColor: '#1a1f2e'
+        },
+        rightPriceScale: {
+            borderColor: '#1a1f2e',
+            entirelyVisible: true
+        }
+    });
+
+    // ── Candle series ──
+    candleSeries = chart.addCandlestickSeries({
+        upColor: '#4ecca3',
+        downColor: '#e74c3c',
+        wickUpColor: '#4ecca3',
+        wickDownColor: '#e74c3c',
+        borderUpColor: '#4ecca3',
+        borderDownColor: '#e74c3c'
+    });
+
+    // ── Volume price scale + series ──
+    chart.addPriceScale({
+        scaleId: 'volume',
+        position: 'left',
+        visible: false,
+        scaleMargins: { top: 0.7, bottom: 0 }
+    });
+
+    volumeSeries = chart.addHistogramSeries({
+        color: '#4ecca3',
+        priceScaleId: 'volume',
+        lastValuePoint: { visible: false }
+    });
+    volumeSeries.applyOptions({ visible: showVolume });
+
+    // ── Crosshair move → update OHLCV legend ──
+    chart.subscribeCrosshairMove(function(param) {
+        if (!param || !param.time || !candleSeries) return;
+        const candle = param.seriesPrices.get(candleSeries);
+        if (!candle) return;
+        document.getElementById('ohlcO').textContent = candle.open.toFixed(6);
+        document.getElementById('ohlcH').textContent = candle.high.toFixed(6);
+        document.getElementById('ohlcL').textContent  = candle.low.toFixed(6);
+        document.getElementById('ohlcC').textContent = candle.close.toFixed(6);
+
+        const vol = volumeData.find(function(v) { return v.time === param.time; });
+        document.getElementById('ohlcV').textContent = vol ? Math.round(vol.value).toLocaleString() : '0';
+    });
+
+    // ── Build candles from raw trades ──
+    function buildCandles(trades, tfMinutes) {
+        var tfSeconds = tfMinutes * 60;
+        var buckets = {};
+
+        trades.forEach(function(t) {
+            var bucket = Math.floor(t.time / tfSeconds) * tfSeconds;
+            if (!buckets[bucket]) {
+                buckets[bucket] = { time: bucket, open: t.price, high: t.price, low: t.price, close: t.price, volume: 0 };
+            }
+            var c = buckets[bucket];
+            if (t.price > c.high) c.high = t.price;
+            if (t.price < c.low)  c.low  = t.price;
+            c.close = t.price;
+            c.volume += t.token404;
+        });
+
+        var sorted = Object.keys(buckets).map(Number).sort(function(a,b){ return a-b; }).map(function(k){ return buckets[k]; });
+
+        // Fill gaps with previous close (no phantom candles with zero price)
+        var filled = [];
+        for (var i = 0; i < sorted.length; i++) {
+            if (i > 0) {
+                var prev = sorted[i-1];
+                var t = prev.time + tfSeconds;
+                while (t < sorted[i].time) {
+                    filled.push({ time: t, open: prev.close, high: prev.close, low: prev.close, close: prev.close, volume: 0 });
+                    prev = filled[filled.length - 1];
+                    t += tfSeconds;
+                }
+            }
+            filled.push(sorted[i]);
+        }
+
+        candleData = filled;
+        volumeData = filled.map(function(c) {
+            return { time: c.time, value: c.volume, color: c.close >= c.open ? '#4ecca344' : '#e74c3c44' };
+        });
+    }
+
+    // ── Update chart header: price + 24h change ──
+    function updateChartHeader() {
+        if (allTrades.length === 0) return;
+        var latest = allTrades[allTrades.length - 1];
+        var priceEl = document.getElementById('chartPrice');
+        var changeEl = document.getElementById('chartPriceChange');
+        if (priceEl) priceEl.textContent = latest.price.toFixed(6) + ' XNT';
+
+        // Find price ~24h ago
+        var now = latest.time;
+        var target24h = now - 86400;
+        var price24h = null;
+        for (var i = 0; i < allTrades.length; i++) {
+            if (allTrades[i].time >= target24h) { price24h = allTrades[i].price; break; }
+        }
+        if (changeEl && price24h && price24h > 0) {
+            var pct = ((latest.price - price24h) / price24h) * 100;
+            changeEl.textContent = '(' + (pct >= 0 ? '+' : '') + pct.toFixed(2) + '%)';
+            changeEl.className = 'chart-price-change ' + (pct >= 0 ? 'positive' : 'negative');
+        }
+    }
+
+    // ── Render chart ──
+    function renderChart() {
+        if (candleData.length === 0) return;
+        candleSeries.setData(candleData);
+        volumeSeries.setData(volumeData);
+        chart.timeScale().fitContent();
+
+        var last = candleData[candleData.length - 1];
+        document.getElementById('ohlcO').textContent = last.open.toFixed(6);
+        document.getElementById('ohlcH').textContent = last.high.toFixed(6);
+        document.getElementById('ohlcL').textContent  = last.low.toFixed(6);
+        document.getElementById('ohlcC').textContent = last.close.toFixed(6);
+        document.getElementById('ohlcV').textContent = Math.round(last.volume).toLocaleString();
+
+        updateChartHeader();
+    }
+
+    // ── Parse a single tx into a trade object (or null) ──
+    function parseTrade(sig, txData) {
+        if (!txData.result || !txData.result.meta) return null;
+        var meta = txData.result.meta;
+        if (!meta.postTokenBalances || !meta.preTokenBalances) return null;
+
+        // 404 token change
+        var token404 = 0;
+        meta.postTokenBalances.forEach(function(postB) {
+            if (postB.mint !== TOKEN_CA) return;
+            var preB = meta.preTokenBalances.find(function(p) { return p.accountIndex === postB.accountIndex && p.mint === TOKEN_CA; });
+            var change = Math.abs(getHumanAmount(postB) - (preB ? getHumanAmount(preB) : 0));
+            if (change > token404) token404 = change;
+        });
+        if (token404 < 0.01) return null;
+
+        // XNT change — both passes
+        var xnt = 0;
+        meta.postTokenBalances.forEach(function(postB) {
+            if (postB.mint !== WXNT_ADDRESS) return;
+            var preB = meta.preTokenBalances.find(function(p) { return p.accountIndex === postB.accountIndex && p.mint === WXNT_ADDRESS; });
+            var change = Math.abs(getHumanAmount(postB) - (preB ? getHumanAmount(preB) : 0));
+            if (change > xnt) xnt = change;
+        });
+        meta.preTokenBalances.forEach(function(preB) {
+            if (preB.mint !== WXNT_ADDRESS) return;
+            if (!meta.postTokenBalances.find(function(p) { return p.accountIndex === preB.accountIndex && p.mint === WXNT_ADDRESS; })) {
+                var amt = getHumanAmount(preB);
+                if (amt > xnt) xnt = amt;
+            }
+        });
+        // Native lamport fallback
+        if (xnt === 0 && meta.preBalances && meta.postBalances) {
+            for (var j = 0; j < meta.preBalances.length; j++) {
+                var diff = Math.abs(meta.postBalances[j] - meta.preBalances[j]) / 1e9;
+                if (diff > 0.0005) { xnt = diff; break; }
+            }
+        }
+
+        if (xnt > 0 && token404 > 0) {
+            return { time: sig.blockTime, price: xnt / token404, xnt: xnt, token404: token404 };
+        }
+        return null;
+    }
+
+    // ── Fetch trades — batched RPC calls (10 at a time) ──
+    async function fetchTrades() {
+        try {
+            var sigRes = await fetch(X1_RPC, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'getSignaturesForAddress', params: [TOKEN_CA, { limit: 200 }] })
             });
+            var sigData = await sigRes.json();
+            if (!sigData.result || sigData.result.length === 0) return;
+
+            var sigs = sigData.result;
+            var trades = [];
+            var BATCH = 10;
+
+            for (var start = 0; start < sigs.length; start += BATCH) {
+                var batch = sigs.slice(start, start + BATCH);
+                // Fire all in parallel
+                var promises = batch.map(function(sig) {
+                    return fetch(X1_RPC, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ jsonrpc: '2.0', id: 2, method: 'getTransaction', params: [sig.signature, { encoding: 'jsonParsed', maxSupportedTransactionVersion: 0 }] })
+                    }).then(function(r) { return r.json(); }).catch(function() { return null; });
+                });
+                var results = await Promise.all(promises);
+
+                for (var i = 0; i < results.length; i++) {
+                    if (!results[i]) continue;
+                    var trade = parseTrade(batch[i], results[i]);
+                    if (trade) trades.push(trade);
+                }
+            }
+
+            // Sort oldest first
+            trades.sort(function(a, b) { return a.time - b.time; });
+            allTrades = trades;
+            console.log('Chart: fetched', trades.length, 'trades');
+
+            buildCandles(allTrades, currentTF);
+            renderChart();
+
+        } catch(e) {
+            console.error('Chart fetch error:', e);
         }
-    };
-    
-    // For now, show a message that chart integration is in progress
-    chartContainer.innerHTML = `
-        <div style="background: var(--bg-tertiary); padding: 4rem 2rem; text-align: center; border-radius: 8px; border: 1px solid var(--border-color); min-height: 400px; display: flex; flex-direction: column; justify-content: center;">
-            <div style="font-size: 3rem; margin-bottom: 1rem;">📈</div>
-            <p style="color: var(--text-primary); font-size: 1.2rem; margin-bottom: 1rem;">Live Price Chart</p>
-            <p style="color: var(--text-secondary); margin-bottom: 0.5rem;">Price: <span id="chartPrice">Loading...</span></p>
-            <p style="color: var(--text-muted); font-size: 0.9rem;">Real-time data from xDEX</p>
-            <a href="https://app.xdex.xyz/swap?fromTokenAddress=${TOKEN_CA}&toTokenAddress=${WXNT_ADDRESS}" 
-               target="_blank" 
-               rel="noopener noreferrer"
-               style="display: inline-block; margin-top: 2rem; padding: 1rem 2rem; background: var(--accent-green); color: var(--bg-primary); border-radius: 4px; text-decoration: none; font-family: 'Rubik Mono One', sans-serif;">
-               VIEW ON xDEX
-            </a>
-        </div>
-    `;
-    
-    // Update chart price
-    setInterval(async () => {
-        const price = await fetchTokenPrice();
-        const chartPriceEl = document.getElementById('chartPrice');
-        if (chartPriceEl && price) {
-            chartPriceEl.textContent = `${price.toFixed(8)} XNT`;
-        }
-    }, 5000);
+    }
+
+    // ── Timeframe buttons ──
+    document.querySelectorAll('.chart-tf-btn[data-tf]').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            var tf = parseInt(btn.getAttribute('data-tf'));
+            if (isNaN(tf)) return;
+            currentTF = tf;
+            document.querySelectorAll('.chart-tf-btn[data-tf]').forEach(function(b) { b.classList.remove('active'); });
+            btn.classList.add('active');
+            var labels = {1:'1m', 5:'5m', 15:'15m', 60:'1h', 240:'4h', 1440:'1d'};
+            document.querySelector('.chart-timeframe-label').textContent = labels[tf] || tf+'m';
+            if (allTrades.length > 0) {
+                buildCandles(allTrades, currentTF);
+                renderChart();
+            }
+        });
+    });
+
+    // ── Volume toggle ──
+    var volBtn = document.getElementById('volToggle');
+    if (volBtn) {
+        volBtn.classList.toggle('active', showVolume);
+        volBtn.addEventListener('click', function() {
+            showVolume = !showVolume;
+            volBtn.classList.toggle('active', showVolume);
+            volumeSeries.applyOptions({ visible: showVolume });
+        });
+    }
+
+    // ── Resize handler ──
+    window.addEventListener('resize', function() {
+        if (chart) chart.resize(container.clientWidth, 420);
+    });
+
+    // ── Initial fetch ──
+    fetchTrades();
+
+    // ── Refresh every 60s ──
+    setInterval(function() { fetchTrades(); }, 60000);
 }
 
-// Initialize chart
-if (document.getElementById('tradingview-widget')) {
-    initTradingViewChart();
+// Start chart (waits for LightweightCharts CDN)
+if (document.getElementById('chartContainer')) {
+    startChart();
 }
