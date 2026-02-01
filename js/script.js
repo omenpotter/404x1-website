@@ -893,9 +893,23 @@ document.querySelectorAll('.feed-tab').forEach(tab => {
 });
 
 // ─── Live Candlestick Chart (TradingView Lightweight Charts) ───────────────
-// SES (X1 Wallet extension) freezes all DOM elements in the parent realm,
-// stripping getBoundingClientRect which LightweightCharts requires.
-// Solution: render the chart inside an iframe (own unfrozen realm).
+// SES (X1 Wallet extension) freezes Element.prototype in the parent realm,
+// which strips getBoundingClientRect — LightweightCharts crashes on init.
+// 
+// WHY an iframe is needed: SES freezes prototypes, not just existing elements.
+// document.createElement('div') still inherits the frozen Element.prototype,
+// so even brand-new elements lack getBoundingClientRect. The only escape is a
+// separate realm — an iframe with its own unfrozen prototype chain.
+//
+// WHY allow-same-origin MUST be removed: a srcdoc iframe with allow-same-origin
+// shares the parent's origin AND realm. SES from the parent bleeds straight in.
+// sandbox="allow-scripts" alone gives a fully isolated realm.
+//
+// WHY the library is inlined: sandbox="allow-scripts" (without allow-same-origin)
+// blocks <script src="https://..."> — external fetches fail silently. The parent
+// has no sandbox and CAN fetch. So the parent downloads LightweightCharts, then
+// bakes the source directly into the srcdoc as an inline <script> block.
+//
 // Parent fetches trades via RPC, posts data to iframe via postMessage.
 // Timeframe/volume button clicks are also posted to iframe.
 
@@ -903,24 +917,9 @@ document.querySelectorAll('.feed-tab').forEach(tab => {
     var container = document.getElementById('chartContainer');
     if (!container) return;
 
-    // ── The iframe's entire document — self-contained chart renderer ──
-    var IFRAME_DOC = `<!DOCTYPE html>
-<html>
-<head>
-<style>
-* { margin:0; padding:0; box-sizing:border-box; }
-body { background:#0a0e13; overflow:hidden; width:100%; height:100%; }
-#chart { width:100%; height:100%; }
-#msg { position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
-       color:#8892b0; font-family:'Share Tech Mono',monospace; font-size:0.9rem;
-       pointer-events:none; }
-</style>
-</head>
-<body>
-<div id="chart"></div>
-<div id="msg">Loading chart...</div>
-<script src="https://cdn.jsdelivr.net/npm/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
-<script>
+    // ── Chart script that runs INSIDE the iframe ──
+    // LightweightCharts source will be injected BEFORE this block in the srcdoc.
+    var CHART_SCRIPT = `
 (function() {
     var chart, candleSeries, volumeSeries;
     var allTrades = [];
@@ -961,7 +960,7 @@ body { background:#0a0e13; overflow:hidden; width:100%; height:100%; }
             window.parent.postMessage({ type: 'ohlcv', o: c.open, h: c.high, l: c.low, cl: c.close, v: vol ? vol.value : 0 }, '*');
         });
 
-        // ResizeObserver
+        // ResizeObserver — keeps chart sized to container on any layout change
         new ResizeObserver(function(entries) {
             if (!chart) return;
             var r = entries[0].contentRect;
@@ -969,6 +968,7 @@ body { background:#0a0e13; overflow:hidden; width:100%; height:100%; }
         }).observe(el);
 
         ready = true;
+        console.log('[iframe] chartReady posted');
         window.parent.postMessage({ type: 'chartReady' }, '*');
     }
 
@@ -986,7 +986,7 @@ body { background:#0a0e13; overflow:hidden; width:100%; height:100%; }
         });
         var sorted = Object.keys(buckets).map(Number).sort(function(a,b){ return a-b; }).map(function(k){ return buckets[k]; });
 
-        // Gap fill
+        // Gap fill — LightweightCharts needs contiguous timestamps
         var filled = [];
         for (var i = 0; i < sorted.length; i++) {
             if (i > 0) {
@@ -1005,7 +1005,9 @@ body { background:#0a0e13; overflow:hidden; width:100%; height:100%; }
         volumeSeries.setData(volumeData);
         chart.timeScale().fitContent();
 
-        // Post last candle OHLCV to parent
+        console.log('[iframe] rendered ' + candleData.length + ' candles at tf=' + tf);
+
+        // Post last candle OHLCV to parent for the legend strip
         if (candleData.length > 0) {
             var last = candleData[candleData.length-1];
             window.parent.postMessage({ type: 'ohlcv', o: last.open, h: last.high, l: last.low, cl: last.close, v: last.volume }, '*');
@@ -1038,26 +1040,96 @@ body { background:#0a0e13; overflow:hidden; width:100%; height:100%; }
         }
     });
 
-    // If LightweightCharts loaded before any message arrives, init early
-    if (typeof LightweightCharts !== 'undefined') { init(); }
-    else { window.addEventListener('load', function(){ if (typeof LightweightCharts !== 'undefined') init(); }); }
-})();
-</script>
-</body>
-</html>`;
+    // LightweightCharts is inlined above this script — it's always available immediately
+    init();
+})();`;
 
-    // ── Create iframe ──
-    var iframe = document.createElement('iframe');
-    iframe.style.width = '100%';
-    iframe.style.height = '100%';
-    iframe.style.border = 'none';
-    iframe.style.display = 'block';
-    iframe.setAttribute('sandbox', 'allow-scripts allow-same-origin');
-    // Remove loading text, insert iframe
-    var loadingEl = container.querySelector('.chart-loading');
-    if (loadingEl) loadingEl.remove();
-    container.appendChild(iframe);
-    iframe.srcdoc = IFRAME_DOC;
+    // ── Parent state ──
+    var iframe = null;
+    var allTrades = [];
+    var currentTF = 60;
+    var showVolume = true;
+    var iframeReady = false;
+    var messageQueue = [];  // holds messages until iframe posts chartReady
+
+    // ── Send data to iframe — queues if not ready yet ──
+    // fetchTrades() often finishes before LWC initialises inside the iframe.
+    // The queue guarantees zero data loss regardless of the race.
+    function sendToChart(msg) {
+        if (!iframeReady || !iframe) {
+            messageQueue.push(msg);
+            return;
+        }
+        try { iframe.contentWindow.postMessage(msg, '*'); }
+        catch(e) { /* iframe not yet accessible */ }
+    }
+
+    // ── Listen for messages FROM iframe ──
+    window.addEventListener('message', function(e) {
+        if (!e.data || !e.data.type) return;
+        if (e.data.type === 'chartReady') {
+            iframeReady = true;
+            console.log('Chart iframe ready — flushing ' + messageQueue.length + ' queued messages');
+            messageQueue.forEach(function(msg) {
+                try { iframe.contentWindow.postMessage(msg, '*'); } catch(err) {}
+            });
+            messageQueue = [];
+        }
+        if (e.data.type === 'ohlcv') {
+            var d = e.data;
+            document.getElementById('ohlcO').textContent = d.o.toFixed(6);
+            document.getElementById('ohlcH').textContent = d.h.toFixed(6);
+            document.getElementById('ohlcL').textContent = d.l.toFixed(6);
+            document.getElementById('ohlcC').textContent = d.cl.toFixed(6);
+            document.getElementById('ohlcV').textContent = Math.round(d.v).toLocaleString();
+        }
+    });
+
+    // ── Fetch LightweightCharts source in the PARENT, then build the iframe ──
+    // The parent is not sandboxed → fetch works fine here.
+    // We inline the library source directly into the srcdoc so the iframe needs
+    // no network access at all — which is good, because sandbox="allow-scripts"
+    // (without allow-same-origin) blocks external script loads.
+    fetch('https://cdn.jsdelivr.net/npm/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js')
+    .then(function(res) { return res.text(); })
+    .then(function(lwcSource) {
+        console.log('LightweightCharts source fetched, length=' + lwcSource.length);
+
+        // Build the srcdoc with LWC inlined
+        var srcdoc = '<!DOCTYPE html><html><head><style>' +
+            '* { margin:0; padding:0; box-sizing:border-box; }' +
+            'body { background:#0a0e13; overflow:hidden; width:100%; height:100%; }' +
+            '#chart { width:100%; height:100%; }' +
+            '#msg { position:absolute; inset:0; display:flex; align-items:center; justify-content:center;' +
+            '       color:#8892b0; font-family:"Share Tech Mono",monospace; font-size:0.9rem;' +
+            '       pointer-events:none; }' +
+            '</style></head><body>' +
+            '<div id="chart"></div>' +
+            '<div id="msg">Loading chart...</div>' +
+            '<script>' + lwcSource + '<\/script>' +   // library inlined — no <script src>
+            '<script>' + CHART_SCRIPT + '<\/script>' + // chart logic runs after library
+            '</body></html>';
+
+        // Create iframe with allow-scripts ONLY — fully isolated realm
+        iframe = document.createElement('iframe');
+        iframe.style.width = '100%';
+        iframe.style.height = '100%';
+        iframe.style.border = 'none';
+        iframe.style.display = 'block';
+        iframe.setAttribute('sandbox', 'allow-scripts');   // NO allow-same-origin
+
+        var loadingEl = container.querySelector('.chart-loading');
+        if (loadingEl) loadingEl.remove();
+        container.appendChild(iframe);
+
+        iframe.srcdoc = srcdoc;
+        console.log('Chart iframe created (allow-scripts only, LWC inlined)');
+    })
+    .catch(function(err) {
+        console.error('Failed to fetch LightweightCharts:', err);
+        var loadingEl = container.querySelector('.chart-loading');
+        if (loadingEl) loadingEl.textContent = 'Chart unavailable';
+    });
 
     // ── Parent state ──
     var allTrades = [];
