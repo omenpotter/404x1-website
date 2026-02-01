@@ -917,10 +917,15 @@ function startChart() {
     var candleData = [];
     var volumeData = [];
 
-    // ── Create chart with autosize ──
+    // ── Read actual rendered size ──
+    var chartW = container.clientWidth || 600;
+    var chartH = container.clientHeight || 420;
+
+    // ── Create chart with explicit pixel size ──
     chart = LightweightCharts.createChart({
         element: container,
-        autosize: true,
+        width: chartW,
+        height: chartH,
         layout: {
             background: { color: '#0a0e13' },
             textColor: '#8892b0',
@@ -1174,6 +1179,16 @@ function startChart() {
             volumeSeries.applyOptions({ visible: showVolume });
         });
     }
+
+    // ── ResizeObserver — keeps chart synced to container on any resize ──
+    var resizeObs = new ResizeObserver(function(entries) {
+        if (!chart) return;
+        var rect = entries[0].contentRect;
+        if (rect.width > 0 && rect.height > 0) {
+            chart.resize(rect.width, rect.height);
+        }
+    });
+    resizeObs.observe(container);
 
     // ── Initial fetch ──
     fetchTrades();
