@@ -37,7 +37,7 @@ function loadUserProgress() {
 }
 
 function updateMilestones(userRP) {
-    const milestones = [100, 500, 1000, 5000];
+    const milestones = [100, 500, 10000, 50000];
     const milestoneItems = document.querySelectorAll('.milestone-item');
     
     milestoneItems.forEach((item, index) => {
