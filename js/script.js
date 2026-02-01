@@ -619,6 +619,16 @@ async function fetchDetailedTransactions() {
             if (!txDetail) continue; // skip pool-internal or unparseable
 
             rendered++;
+
+            // First valid tx: if proxy failed to set price, derive from on-chain trade
+            if (rendered === 1 && txDetail.price > 0 && !currentPrice) {
+                currentPrice = txDetail.price;
+                const priceEl = document.getElementById('priceXNT');
+                if (priceEl) priceEl.textContent = `${currentPrice.toFixed(6)} XNT`;
+                console.log(`Price derived from latest on-chain trade: ${currentPrice}`);
+                calculateMarketCap();
+            }
+
             const date = new Date(sig.blockTime * 1000);
             const dateStr = date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' });
             const timeStr = date.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
