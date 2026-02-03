@@ -814,7 +814,6 @@ document.querySelectorAll('.feed-tab').forEach(tab => {
   }
 
   function buildAndRender(trades, tf) {
-    console.log('[Chart Debug] buildAndRender called with:', trades.length, 'trades, tf =', tf);
     const tfSec = tf * 60;
     const buckets = {};
     trades.forEach(t => {
@@ -827,7 +826,6 @@ document.querySelectorAll('.feed-tab').forEach(tab => {
       c.volume += t.token404;
     });
     const sorted = Object.keys(buckets).map(Number).sort((a,b)=>a-b).map(k=>buckets[k]);
-    console.log('[Chart Debug] Created', Object.keys(buckets).length, 'buckets, sorted into', sorted.length, 'candles');
     const filled = [];
     for (let i = 0; i < sorted.length; i++) {
       if (i > 0) {
@@ -841,21 +839,14 @@ document.querySelectorAll('.feed-tab').forEach(tab => {
       filled.push(sorted[i]);
     }
     candleData = filled;
-    console.log('[Chart Debug] After gap filling:', filled.length, 'total candles');
-    if (filled.length > 0) {
-      console.log('[Chart Debug] First candle:', filled[0]);
-      console.log('[Chart Debug] Last candle:', filled[filled.length-1]);
-    }
     volumeData = filled.map(c => ({ time: c.time, value: c.volume, color: c.close >= c.open ? '#4ecca344' : '#e74c3c44' }));
     candleSeries.setData(candleData);
     volumeSeries.setData(volumeData);
-    console.log('[Chart Debug] Data set on series, calling fitContent');
     chart.timeScale().fitContent();
     if (candleData.length > 0) {
       const last = candleData[candleData.length-1];
       window.parent.postMessage({ type: 'ohlcv', o: last.open, h: last.high, l: last.low, cl: last.close, v: last.volume }, '*');
     }
-    console.log('[Chart Debug] buildAndRender complete');
   }
 
   window.addEventListener('message', e => {
@@ -940,13 +931,15 @@ document.querySelectorAll('.feed-tab').forEach(tab => {
 
         if (xnt > 0 && token404 > 0) {
             const price = xnt / token404;
-            console.log('[Trade Parse] Valid:', {
-                time: new Date(sig.blockTime * 1000).toISOString().substring(0, 19),
-                token404: token404.toFixed(2),
-                xnt: xnt.toFixed(6),
-                price: price.toFixed(8)
-            });
-            return { time: sig.blockTime, price: xnt / token404, xnt: xnt, token404: token404 };
+            
+            // Filter out anomalous prices that are way off from expected range
+            // Normal 404 price should be around 0.001-0.01 XNT
+            // Reject prices that are < 0.0001 or > 0.1 (likely failed/partial swaps)
+            if (price < 0.0001 || price > 0.1) {
+                return null; // Filter out anomalous trade
+            }
+            
+            return { time: sig.blockTime, price: price, xnt: xnt, token404: token404 };
         }
         return null;
     }
@@ -985,16 +978,7 @@ document.querySelectorAll('.feed-tab').forEach(tab => {
             trades.sort((a, b) => a.time - b.time);
             allTrades = trades;
 
-            console.log('[Chart] Total valid trades found:', trades.length);
             if (trades.length > 0) {
-                console.log('[Chart] First trade:', trades[0]);
-                console.log('[Chart] Last trade:', trades[trades.length - 1]);
-                console.log('[Chart] Price range:', 
-                    Math.min(...trades.map(t => t.price)).toFixed(8), 
-                    'to', 
-                    Math.max(...trades.map(t => t.price)).toFixed(8)
-                );
-                
                 sendToChart({ type: 'trades', trades: allTrades, tf: currentTF });
 
                 const latest = allTrades[allTrades.length - 1];
