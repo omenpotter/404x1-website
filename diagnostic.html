@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chart Diagnostic</title>
+    <style>
+        body {
+            font-family: monospace;
+            background: #0a0e13;
+            color: #8892b0;
+            padding: 20px;
+        }
+        .status { margin: 10px 0; }
+        .success { color: #4ecca3; }
+        .error { color: #e74c3c; }
+        .warning { color: #f39c12; }
+        pre { background: #1a1f2e; padding: 10px; overflow-x: auto; }
+    </style>
+</head>
+<body>
+    <h1>404x1 Chart Diagnostic</h1>
+    <div id="output"></div>
+    
+    <script>
+        const TOKEN_CA = '4o4UheANLdqF4gSV4zWTbCTCercQNSaTm6nVcDetzPb2';
+        const WXNT_ADDRESS = 'So11111111111111111111111111111111111111112';
+        const X1_RPC = 'https://rpc.mainnet.x1.xyz/';
+        const output = document.getElementById('output');
+        
+        function log(msg, type = 'status') {
+            const div = document.createElement('div');
+            div.className = `status ${type}`;
+            div.innerHTML = msg;
+            output.appendChild(div);
+        }
+        
+        function getHumanAmount(balance) {
+            const amt = balance.uiTokenAmount?.uiAmount;
+            if (amt !== undefined && amt !== null) return parseFloat(amt);
+            return 0;
+        }
+        
+        async function testChart() {
+            try {
+                log('🔍 Fetching signatures from X1 RPC...', 'status');
+                
+                const sigRes = await fetch(X1_RPC, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        jsonrpc: '2.0', 
+                        id: 1, 
+                        method: 'getSignaturesForAddress', 
+                        params: [TOKEN_CA, { limit: 20 }] 
+                    })
+                });
+                
+                const sigData = await sigRes.json();
+                
+                if (!sigData.result || sigData.result.length === 0) {
+                    log('❌ No signatures found for token: ' + TOKEN_CA, 'error');
+                    return;
+                }
+                
+                log(`✅ Found ${sigData.result.length} signatures`, 'success');
+                
+                log('📊 Fetching first 5 transactions...', 'status');
+                const trades = [];
+                
+                for (let i = 0; i < Math.min(5, sigData.result.length); i++) {
+                    const sig = sigData.result[i].signature;
+                    log(`Fetching tx ${i+1}: ${sig.substring(0, 16)}...`, 'status');
+                    
+                    const txRes = await fetch(X1_RPC, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ 
+                            jsonrpc: '2.0', 
+                            id: 2, 
+                            method: 'getTransaction', 
+                            params: [sig, { encoding: 'jsonParsed', maxSupportedTransactionVersion: 0 }] 
+                        })
+                    });
+                    
+                    const txData = await txRes.json();
+                    
+                    if (!txData.result || !txData.result.meta) {
+                        log(`  ⚠️  No result/meta for tx ${i+1}`, 'warning');
+                        continue;
+                    }
+                    
+                    const meta = txData.result.meta;
+                    const blockTime = txData.result.blockTime;
+                    
+                    if (!meta.postTokenBalances || !meta.preTokenBalances) {
+                        log(`  ⚠️  No token balances for tx ${i+1}`, 'warning');
+                        continue;
+                    }
+                    
+                    // Calculate 404 token amount
+                    let token404 = 0;
+                    meta.postTokenBalances.forEach(postB => {
+                        if (postB.mint !== TOKEN_CA) return;
+                        const preB = meta.preTokenBalances.find(p => 
+                            p.accountIndex === postB.accountIndex && p.mint === TOKEN_CA
+                        );
+                        const change = Math.abs(getHumanAmount(postB) - (preB ? getHumanAmount(preB) : 0));
+                        if (change > token404) token404 = change;
+                    });
+                    
+                    // Calculate XNT amount
+                    let xnt = 0;
+                    meta.postTokenBalances.forEach(postB => {
+                        if (postB.mint !== WXNT_ADDRESS) return;
+                        const preB = meta.preTokenBalances.find(p => 
+                            p.accountIndex === postB.accountIndex && p.mint === WXNT_ADDRESS
+                        );
+                        const change = Math.abs(getHumanAmount(postB) - (preB ? getHumanAmount(preB) : 0));
+                        if (change > xnt) xnt = change;
+                    });
+                    
+                    // Fallback to native SOL balance changes
+                    if (xnt === 0 && meta.preBalances && meta.postBalances) {
+                        let maxDiff = 0;
+                        for (let j = 0; j < meta.preBalances.length; j++) {
+                            const diff = Math.abs(meta.postBalances[j] - meta.preBalances[j]) / 1e9;
+                            if (diff > maxDiff) maxDiff = diff;
+                        }
+                        if (maxDiff > 0.0005) xnt = maxDiff;
+                    }
+                    
+                    if (xnt > 0 && token404 > 0.01) {
+                        const price = xnt / token404;
+                        const date = new Date(blockTime * 1000).toISOString();
+                        trades.push({ time: blockTime, price, xnt, token404, date });
+                        log(`  ✅ Trade ${i+1}: ${token404.toFixed(2)} 404 for ${xnt.toFixed(6)} XNT = ${price.toFixed(8)} XNT per 404`, 'success');
+                        log(`      Time: ${date}`, 'status');
+                    } else {
+                        log(`  ⚠️  Tx ${i+1}: Invalid trade (404=${token404.toFixed(2)}, XNT=${xnt.toFixed(6)})`, 'warning');
+                    }
+                }
+                
+                if (trades.length === 0) {
+                    log('❌ No valid trades found in first 5 transactions', 'error');
+                    log('This means the chart will be empty!', 'error');
+                } else {
+                    log(`\n✅ SUCCESS: Found ${trades.length} valid trades`, 'success');
+                    log('Chart should display candles with these trades:', 'success');
+                    
+                    const pre = document.createElement('pre');
+                    pre.textContent = JSON.stringify(trades, null, 2);
+                    output.appendChild(pre);
+                    
+                    // Create candlestick data
+                    const tfSec = 60 * 60; // 1 hour
+                    const buckets = {};
+                    trades.forEach(t => {
+                        const b = Math.floor(t.time / tfSec) * tfSec;
+                        if (!buckets[b]) {
+                            buckets[b] = { 
+                                time: b, 
+                                open: t.price, 
+                                high: t.price, 
+                                low: t.price, 
+                                close: t.price, 
+                                volume: 0 
+                            };
+                        }
+                        const c = buckets[b];
+                        c.high = Math.max(c.high, t.price);
+                        c.low = Math.min(c.low, t.price);
+                        c.close = t.price;
+                        c.volume += t.token404;
+                    });
+                    
+                    const candles = Object.values(buckets);
+                    log(`\n📊 Candlestick data (${candles.length} candles):`, 'success');
+                    
+                    const pre2 = document.createElement('pre');
+                    pre2.textContent = JSON.stringify(candles, null, 2);
+                    output.appendChild(pre2);
+                }
+                
+            } catch (error) {
+                log('❌ ERROR: ' + error.message, 'error');
+                console.error(error);
+            }
+        }
+        
+        testChart();
+    </script>
+</body>
+</html>
