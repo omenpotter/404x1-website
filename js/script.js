@@ -946,6 +946,7 @@ document.querySelectorAll('.feed-tab').forEach(tab => {
 
     async function fetchTrades() {
         try {
+            console.log('[Chart] Fetching signatures...');
             const sigRes = await fetch(X1_RPC, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -959,9 +960,17 @@ document.querySelectorAll('.feed-tab').forEach(tab => {
 
             const sigs = sigData.result;
             const trades = [];
-            const MAX_TRADES = 100;
+            const MAX_TRADES = 200; // Increased to get more valid trades after filtering
+            const MAX_SIGS_TO_CHECK = 500; // Check up to 500 signatures to find valid trades
+            
+            console.log(`[Chart] Processing up to ${MAX_SIGS_TO_CHECK} transactions to find ${MAX_TRADES} valid trades...`);
 
-            for (let i = 0; i < sigs.length && trades.length < MAX_TRADES; i++) {
+            for (let i = 0; i < Math.min(sigs.length, MAX_SIGS_TO_CHECK) && trades.length < MAX_TRADES; i++) {
+                // Log progress every 50 transactions
+                if (i > 0 && i % 50 === 0) {
+                    console.log(`[Chart] Processed ${i} txs, found ${trades.length} valid trades so far...`);
+                }
+                
                 try {
                     const txRes = await fetch(X1_RPC, {
                         method: 'POST',
@@ -978,6 +987,7 @@ document.querySelectorAll('.feed-tab').forEach(tab => {
             trades.sort((a, b) => a.time - b.time);
             allTrades = trades;
 
+            console.log(`[Chart] ✅ Finished! Processed ${Math.min(sigs.length, MAX_SIGS_TO_CHECK)} transactions, found ${trades.length} valid trades`);
             if (trades.length > 0) {
                 sendToChart({ type: 'trades', trades: allTrades, tf: currentTF });
 
