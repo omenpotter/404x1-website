@@ -895,8 +895,11 @@ document.querySelectorAll('.feed-tab').forEach(tab => {
     .then(function(lwcSource) {
         console.log('LightweightCharts source fetched, length=' + lwcSource.length);
 
+        // Build iframe with strict CSP to block extension interference
         var html =
-            '<!DOCTYPE html><html><head><style>' +
+            '<!DOCTYPE html><html><head>' +
+            '<meta http-equiv="Content-Security-Policy" content="default-src \'none\'; script-src \'unsafe-inline\'; style-src \'unsafe-inline\'; img-src data:;">' +
+            '<style>' +
             '* { margin:0; padding:0; box-sizing:border-box; }' +
             'body { background:#0a0e13; overflow:hidden; width:100%; height:100%; }' +
             '#chart { width:100%; height:100%; }' +
@@ -909,19 +912,17 @@ document.querySelectorAll('.feed-tab').forEach(tab => {
             '<script>' + CHART_SCRIPT + '</script>' +
             '</body></html>';
 
-        // Use data: URL instead of blob: for better CSP compatibility
-        var dataURL = 'data:text/html;charset=utf-8,' + encodeURIComponent(html);
-
         iframe = document.createElement('iframe');
         iframe.style.cssText = 'width:100%;height:100%;border:none;display:block;';
+        // Use srcdoc with strict sandbox - NO allow-same-origin to prevent extension injection
         iframe.setAttribute('sandbox', 'allow-scripts');
+        iframe.setAttribute('srcdoc', html);
 
         var loadingEl = container.querySelector('.chart-loading');
         if (loadingEl) loadingEl.remove();
         container.appendChild(iframe);
 
-        iframe.src = dataURL;
-        console.log('Chart iframe created (data URL, allow-scripts only, LWC inlined)');
+        console.log('Chart iframe created (srcdoc with strict CSP, extension-isolated)');
     })
     .catch(function(err) {
         console.error('Failed to fetch LightweightCharts:', err);
