@@ -1062,6 +1062,12 @@ body {
     height: 420px;
     position: relative;
 }
+#chartContainer {
+    width: 100%;
+    height: 420px;
+    min-height: 400px;
+    position: relative;
+}
 .chart-loading {
     position: absolute;
     inset: 0;
