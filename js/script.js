@@ -716,21 +716,6 @@ document.querySelectorAll('.feed-tab').forEach(tab => {
 });
 
 // ─── Live Candlestick Chart ─────────────────────────────────────────────────
-// X1 Wallet injects SES (lockdown-install.js) at document_start which freezes
-// Element.prototype in the parent realm — getBoundingClientRect disappears and
-// LightweightCharts crashes. Even newly created elements inherit the frozen
-// prototype, and srcdoc iframes share the parent's realm in Chrome, so SES
-// bleeds through sandbox="allow-scripts" on srcdoc.
-//
-// Solution: data: URL iframe.
-//   • Parent fetches LWC source (parent has no sandbox, fetch works).
-//   • Builds a complete HTML document with LWC inlined as a <script> block.
-//   • Creates a data: URL with encodeURIComponent(), sets iframe.src = dataURL.
-//   • Data URL iframes get an opaque origin and isolated realm —
-//     Chrome extensions cannot inject content scripts into them.
-//   • sandbox="allow-scripts" (no allow-same-origin) further ensures isolation.
-//   • Parent posts trade data via postMessage; iframe posts OHLCV back.
-
 (function() {
     var container = document.getElementById('chartContainer');
     if (!container) return;
@@ -884,10 +869,13 @@ document.querySelectorAll('.feed-tab').forEach(tab => {
         '      }',
         '      ',
         '      console.log("[iframe] Creating LightweightCharts with explicit dimensions...");',
-        '      chart = LightweightCharts.createChart({',
-        '        element: el,',
-        '        width: el.clientWidth || 600,',
-        '        height: el.clientHeight || 420,',
+        '      const chartContainer = el;',
+        '      const width = chartContainer.clientWidth || 600;',
+        '      const height = chartContainer.clientHeight || 420; // fallback if parent has height:0',
+        '',
+        '      chart = LightweightCharts.createChart(chartContainer, {',
+        '        width: width,',
+        '        height: height,',
         '        layout: { background: { color: "#0a0e13" }, textColor: "#8892b0", fontSize: 11, fontFamily: "Share Tech Mono, monospace" },',
         '        grid: { vertLines: { color: "#1a1f2e" }, horzLines: { color: "#1a1f2e" } },',
         '        crosshair: { mode: LightweightCharts.CrosshairMode.Normal },',
@@ -1028,7 +1016,6 @@ document.querySelectorAll('.feed-tab').forEach(tab => {
 
         iframe = document.createElement('iframe');
         iframe.style.cssText = 'width:100%;height:100%;border:none;display:block;';
-        // Use srcdoc with strict sandbox - NO allow-same-origin to prevent extension injection
         iframe.setAttribute('sandbox', 'allow-scripts');
         iframe.setAttribute('srcdoc', html);
 
