@@ -795,7 +795,7 @@ document.querySelectorAll('.feed-tab').forEach(tab => {
 
       chart.subscribeCrosshairMove(param => {
         if (!param?.time || !candleSeries) return;
-        const c = param.seriesPrices.get(candleSeries);
+        const c = param.seriesPrices?.get(candleSeries);
         if (!c) return;
         const vol = volumeData.find(v => v.time === param.time);
         window.parent.postMessage({ type: 'ohlcv', o: c.open, h: c.high, l: c.low, cl: c.close, v: vol ? vol.value : 0 }, '*');
