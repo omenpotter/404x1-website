@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Chart Diagnostic</title>
+    <title>Chart Diagnostic (Fixed)</title>
     <style>
         body {
             font-family: monospace;
@@ -15,11 +15,12 @@
         .success { color: #4ecca3; }
         .error { color: #e74c3c; }
         .warning { color: #f39c12; }
+        .filtered { color: #f39c12; font-style: italic; }
         pre { background: #1a1f2e; padding: 10px; overflow-x: auto; }
     </style>
 </head>
 <body>
-    <h1>404x1 Chart Diagnostic</h1>
+    <h1>404x1 Chart Diagnostic (With Price Filter)</h1>
     <div id="output"></div>
     
     <script>
@@ -65,10 +66,12 @@
                 
                 log(`✅ Found ${sigData.result.length} signatures`, 'success');
                 
-                log('📊 Fetching first 5 transactions...', 'status');
+                log('📊 Fetching and parsing transactions with PRICE FILTER...', 'status');
+                log('⚠️  Filtering out prices < 0.0001 or > 0.1 XNT (anomalous trades)', 'warning');
                 const trades = [];
+                let filteredCount = 0;
                 
-                for (let i = 0; i < Math.min(5, sigData.result.length); i++) {
+                for (let i = 0; i < Math.min(10, sigData.result.length); i++) {
                     const sig = sigData.result[i].signature;
                     log(`Fetching tx ${i+1}: ${sig.substring(0, 16)}...`, 'status');
                     
@@ -132,17 +135,29 @@
                     
                     if (xnt > 0 && token404 > 0.01) {
                         const price = xnt / token404;
+                        
+                        // *** PRICE FILTER ***
+                        if (price < 0.0001 || price > 0.1) {
+                            filteredCount++;
+                            log(`  🚫 FILTERED ${i+1}: Price ${price.toFixed(8)} is out of range (${token404.toFixed(2)} 404 for ${xnt.toFixed(6)} XNT)`, 'filtered');
+                            continue;
+                        }
+                        
                         const date = new Date(blockTime * 1000).toISOString();
                         trades.push({ time: blockTime, price, xnt, token404, date });
-                        log(`  ✅ Trade ${i+1}: ${token404.toFixed(2)} 404 for ${xnt.toFixed(6)} XNT = ${price.toFixed(8)} XNT per 404`, 'success');
+                        log(`  ✅ Trade ${trades.length}: ${token404.toFixed(2)} 404 for ${xnt.toFixed(6)} XNT = ${price.toFixed(8)} XNT per 404`, 'success');
                         log(`      Time: ${date}`, 'status');
                     } else {
                         log(`  ⚠️  Tx ${i+1}: Invalid trade (404=${token404.toFixed(2)}, XNT=${xnt.toFixed(6)})`, 'warning');
                     }
                 }
                 
+                if (filteredCount > 0) {
+                    log(`\n🚫 Filtered out ${filteredCount} anomalous trades`, 'warning');
+                }
+                
                 if (trades.length === 0) {
-                    log('❌ No valid trades found in first 5 transactions', 'error');
+                    log('❌ No valid trades found after filtering', 'error');
                     log('This means the chart will be empty!', 'error');
                 } else {
                     log(`\n✅ SUCCESS: Found ${trades.length} valid trades`, 'success');
@@ -180,6 +195,15 @@
                     const pre2 = document.createElement('pre');
                     pre2.textContent = JSON.stringify(candles, null, 2);
                     output.appendChild(pre2);
+                    
+                    // Show price range
+                    if (candles.length > 0) {
+                        const allPrices = candles.flatMap(c => [c.high, c.low]);
+                        const minPrice = Math.min(...allPrices);
+                        const maxPrice = Math.max(...allPrices);
+                        log(`\n📈 Price range: ${minPrice.toFixed(8)} to ${maxPrice.toFixed(8)} XNT`, 'success');
+                        log(`Price variation: ${((maxPrice - minPrice) / minPrice * 100).toFixed(2)}%`, 'success');
+                    }
                 }
                 
             } catch (error) {
