@@ -399,7 +399,6 @@ async function fetchAllHolders() {
                     })
                 });
                 const data = await res.json();
-                console.log(`getProgramAccounts (${programId.slice(0,8)}...) returned:`, data.result ? data.result.length : 0, 'accounts', data.error ? '| error: ' + JSON.stringify(data.error) : '');
                 if (data.result && data.result.length > 0) {
                     allAccounts = allAccounts.concat(data.result);
                 }
@@ -409,17 +408,12 @@ async function fetchAllHolders() {
         }
 
         if (allAccounts.length === 0) {
-            console.log('getProgramAccounts returned nothing, falling back to getTokenLargestAccounts...');
-            holderList.innerHTML = '<div class="loading-more">Fetching top holders...</div>';
-
             const res = await fetch(X1_RPC, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'getTokenLargestAccounts', params: [TOKEN_CA, { commitment: 'confirmed', limit: 500 }] })
             });
             const data = await res.json();
-            console.log('getTokenLargestAccounts returned:', data.result ? data.result.value.length : 0);
-
             if (data.result && data.result.value && data.result.value.length > 0) {
                 renderHolders(data.result.value.map(acc => ({ address: acc.address, amount: acc.amount, uiAmount: acc.uiAmount })));
                 return data.result.value.length;
@@ -488,7 +482,6 @@ function renderHolders(holders) {
     });
 }
 
-// Token-2022 tokens return uiAmount as null in getTransaction — must compute manually
 function getHumanAmount(balanceEntry) {
     if (!balanceEntry || !balanceEntry.uiTokenAmount) return 0;
     if (balanceEntry.uiTokenAmount.uiAmount != null) {
@@ -504,7 +497,6 @@ async function fetchDetailedTransactions() {
     if (!txList) return;
 
     try {
-        console.log('Fetching transactions...');
         txList.innerHTML = '<div class="loading-more">Loading transactions...</div>';
         
         const response = await fetch(X1_RPC, {
@@ -514,7 +506,6 @@ async function fetchDetailedTransactions() {
         });
 
         const data = await response.json();
-        console.log('Got', data.result ? data.result.length : 0, 'signatures');
         
         if (!data.result || data.result.length === 0) {
             txList.innerHTML = '<div class="loading-more">No transactions found</div>';
@@ -536,7 +527,6 @@ async function fetchDetailedTransactions() {
                 currentPrice = txDetail.price;
                 const priceEl = document.getElementById('priceXNT');
                 if (priceEl) priceEl.textContent = `${currentPrice.toFixed(6)} XNT`;
-                console.log(`Price derived from latest on-chain trade: ${currentPrice}`);
                 calculateMarketCap();
             }
 
@@ -588,7 +578,6 @@ async function fetchTransactionDetail(signature) {
 
         const maker = tx.message.accountKeys[0]?.pubkey || 'Unknown';
 
-        // 404 token amount — largest single-account change for this mint
         let maxTokenChange = 0;
         let tokenChangeSign = 0;
 
@@ -601,7 +590,6 @@ async function fetchTransactionDetail(signature) {
                 tokenChangeSign = change > 0 ? 1 : -1;
             }
         });
-        // Pre-only accounts (closed in post)
         meta.preTokenBalances.forEach(preB => {
             if (preB.mint !== TOKEN_CA) return;
             if (!meta.postTokenBalances.find(p => p.accountIndex === preB.accountIndex)) {
@@ -613,7 +601,6 @@ async function fetchTransactionDetail(signature) {
         const tokenAmount = maxTokenChange;
         if (tokenAmount < 0.01) return null;
 
-        // BUY/SELL detection
         let type = 'swap';
         const makerPre = meta.preTokenBalances.find(b => b.mint === TOKEN_CA && b.owner === maker);
         const makerPost = meta.postTokenBalances.find(b => b.mint === TOKEN_CA && b.owner === maker);
@@ -623,10 +610,8 @@ async function fetchTransactionDetail(signature) {
             type = tokenChangeSign > 0 ? 'buy' : 'sell';
         }
 
-        // XNT amount — dual-pass WXNT scanning
         let xntAmount = 0;
 
-        // Pass 1: accounts present in post
         meta.postTokenBalances.forEach(postB => {
             if (postB.mint !== WXNT_ADDRESS) return;
             const preB = meta.preTokenBalances.find(p => p.accountIndex === postB.accountIndex && p.mint === WXNT_ADDRESS);
@@ -634,7 +619,6 @@ async function fetchTransactionDetail(signature) {
             if (change > xntAmount) xntAmount = change;
         });
 
-        // Pass 2: accounts closed after full withdrawal
         meta.preTokenBalances.forEach(preB => {
             if (preB.mint !== WXNT_ADDRESS) return;
             if (!meta.postTokenBalances.find(p => p.accountIndex === preB.accountIndex && p.mint === WXNT_ADDRESS)) {
@@ -643,7 +627,6 @@ async function fetchTransactionDetail(signature) {
             }
         });
 
-        // Fallback: native lamport diffs
         if (xntAmount === 0 && meta.preBalances && meta.postBalances) {
             for (let i = 0; i < meta.preBalances.length; i++) {
                 const diff = Math.abs(meta.postBalances[i] - meta.preBalances[i]) / 1e9;
@@ -672,7 +655,6 @@ async function calculateMarketCap() {
             else if (marketCap >= 1) formatted = marketCap.toFixed(2);
             else formatted = marketCap.toFixed(4);
             document.getElementById('marketCap').textContent = `${formatted} XNT`;
-            console.log(`MarketCap: ${currentPrice} × ${FIXED_SUPPLY} = ${marketCap} (${formatted} XNT)`);
         } else {
             document.getElementById('marketCap').textContent = 'Calculating...';
         }
@@ -684,7 +666,6 @@ async function calculateMarketCap() {
 
 async function initializeTokenData() {
     if (!document.getElementById('priceXNT')) return;
-    console.log('Initializing token data...');
     try {
         await fetchTokenPrice();
         await calculateMarketCap();
@@ -715,42 +696,35 @@ document.querySelectorAll('.feed-tab').forEach(tab => {
     });
 });
 
-// ─── Live Candlestick Chart ─────────────────────────────────────────────────
+// ─── Live Candlestick Chart (FULLY FIXED) ─────────────────────────────────────
 (function() {
-    var container = document.getElementById('chartContainer');
+    const container = document.getElementById('chartContainer');
     if (!container) return;
 
-    // ── Single set of parent-side state ──
-    var iframe = null;
-    var allTrades = [];
-    var currentTF = 60;
-    var showVolume = true;
-    var iframeReady = false;
-    var messageQueue = [];   // holds messages until iframe posts chartReady
+    let iframe = null;
+    let allTrades = [];
+    let currentTF = 60;
+    let showVolume = true;
+    let iframeReady = false;
+    const messageQueue = [];
 
-    // ── Send to iframe — queues if not ready ──
     function sendToChart(msg) {
         if (!iframeReady || !iframe) {
             messageQueue.push(msg);
             return;
         }
-        try { iframe.contentWindow.postMessage(msg, '*'); }
-        catch(e) { /* not yet accessible */ }
+        try { iframe.contentWindow.postMessage(msg, '*'); } catch(e) {}
     }
 
-    // ── Listen for messages FROM iframe ──
-    window.addEventListener('message', function(e) {
-        if (!e.data || !e.data.type) return;
+    window.addEventListener('message', e => {
+        if (!e.data?.type) return;
         if (e.data.type === 'chartReady') {
             iframeReady = true;
-            console.log('Chart iframe ready — flushing ' + messageQueue.length + ' queued messages');
-            messageQueue.forEach(function(msg) {
-                try { iframe.contentWindow.postMessage(msg, '*'); } catch(err) {}
-            });
-            messageQueue = [];
+            messageQueue.forEach(m => { try { iframe.contentWindow.postMessage(m, '*'); } catch(err) {} });
+            messageQueue.length = 0;
         }
         if (e.data.type === 'ohlcv') {
-            var d = e.data;
+            const d = e.data;
             document.getElementById('ohlcO').textContent = d.o.toFixed(6);
             document.getElementById('ohlcH').textContent = d.h.toFixed(6);
             document.getElementById('ohlcL').textContent = d.l.toFixed(6);
@@ -759,318 +733,197 @@ document.querySelectorAll('.feed-tab').forEach(tab => {
         }
     });
 
-    // ── Chart script that runs INSIDE the blob iframe ──
-    var CHART_SCRIPT = [
-        '(function() {',
-        '  // ── CRITICAL: Override frozen getBoundingClientRect ──',
-        '  (function() {',
-        '    var isWorking = false;',
-        '    try {',
-        '      var testDiv = document.createElement("div");',
-        '      testDiv.getBoundingClientRect();',
-        '      console.log("[iframe] getBoundingClientRect native - OK");',
-        '      isWorking = true;',
-        '    } catch (e) {',
-        '      console.warn("[iframe] getBoundingClientRect frozen:", e.message);',
-        '    }',
-        '    ',
-        '    if (!isWorking) {',
-        '      console.log("[iframe] Attempting to install polyfill on frozen prototype...");',
-        '      ',
-        '      // Create polyfill function',
-        '      var polyfillGetBCR = function() {',
-        '        var rect = {',
-        '          width: this.offsetWidth || this.clientWidth || 0,',
-        '          height: this.offsetHeight || this.clientHeight || 0,',
-        '          top: 0,',
-        '          left: 0',
-        '        };',
-        '        var el = this;',
-        '        while (el && el.offsetParent) {',
-        '          rect.left += el.offsetLeft || 0;',
-        '          rect.top += el.offsetTop || 0;',
-        '          el = el.offsetParent;',
-        '        }',
-        '        rect.right = rect.left + rect.width;',
-        '        rect.bottom = rect.top + rect.height;',
-        '        rect.x = rect.left;',
-        '        rect.y = rect.top;',
-        '        return rect;',
-        '      };',
-        '      ',
-        '      // Try to force override despite freeze',
-        '      try {',
-        '        Object.defineProperty(Element.prototype, "getBoundingClientRect", {',
-        '          value: polyfillGetBCR,',
-        '          writable: true,',
-        '          enumerable: false,',
-        '          configurable: true',
-        '        });',
-        '        console.log("[iframe] Polyfill installed via defineProperty");',
-        '      } catch (defineErr) {',
-        '        console.error("[iframe] defineProperty failed (prototype frozen):", defineErr.message);',
-        '        ',
-        '        // NUCLEAR OPTION: Patch every element individually',
-        '        console.log("[iframe] Installing per-element patches...");',
-        '        var originalCreate = document.createElement;',
-        '        document.createElement = function(tag) {',
-        '          var el = originalCreate.call(document, tag);',
-        '          if (!el.getBoundingClientRect || typeof el.getBoundingClientRect !== "function") {',
-        '            el.getBoundingClientRect = polyfillGetBCR;',
-        '          }',
-        '          return el;',
-        '        };',
-        '        ',
-        '        var originalGetId = document.getElementById;',
-        '        document.getElementById = function(id) {',
-        '          var el = originalGetId.call(document, id);',
-        '          if (el && (!el.getBoundingClientRect || typeof el.getBoundingClientRect !== "function")) {',
-        '            el.getBoundingClientRect = polyfillGetBCR;',
-        '          }',
-        '          return el;',
-        '        };',
-        '        ',
-        '        console.log("[iframe] Per-element patches installed");',
-        '      }',
-        '      ',
-        '      // Final verification',
-        '      try {',
-        '        var verify = document.createElement("div");',
-        '        verify.style.cssText = "width:100px;height:50px;";',
-        '        document.body.appendChild(verify);',
-        '        var r = verify.getBoundingClientRect();',
-        '        document.body.removeChild(verify);',
-        '        console.log("[iframe] Polyfill verified:", r.width + "x" + r.height);',
-        '      } catch (verifyErr) {',
-        '        console.error("[iframe] Polyfill verification failed:", verifyErr);',
-        '      }',
-        '    }',
-        '  })();',
-        '',
-        '  var chart, candleSeries, volumeSeries;',
-        '  var allTrades = [], currentTF = 60, showVolume = true;',
-        '  var candleData = [], volumeData = [];',
-        '',
-        '  function init() {',
-        '    try {',
-        '      var el = document.getElementById("chart");',
-        '      ',
-        '      // Pre-flight check',
-        '      console.log("[iframe] Pre-flight: el.clientWidth=" + el.clientWidth + ", el.clientHeight=" + el.clientHeight);',
-        '      console.log("[iframe] Pre-flight: typeof el.getBoundingClientRect=" + typeof el.getBoundingClientRect);',
-        '      ',
-        '      if (typeof el.getBoundingClientRect === "function") {',
-        '        try {',
-        '          var testRect = el.getBoundingClientRect();',
-        '          console.log("[iframe] Pre-flight getBCR test OK:", testRect.width + "x" + testRect.height);',
-        '        } catch (testErr) {',
-        '          console.error("[iframe] Pre-flight getBCR test FAILED:", testErr);',
-        '        }',
-        '      }',
-        '      ',
-        '      console.log("[iframe] Creating LightweightCharts with explicit dimensions...");',
-        '      const chartContainer = el;',
-        '      const width = chartContainer.clientWidth || 600;',
-        '      const height = chartContainer.clientHeight || 420; // fallback if parent has height:0',
-        '',
-        '      chart = LightweightCharts.createChart(chartContainer, {',
-        '        width: width,',
-        '        height: height,',
-        '        layout: { background: { color: "#0a0e13" }, textColor: "#8892b0", fontSize: 11, fontFamily: "Share Tech Mono, monospace" },',
-        '        grid: { vertLines: { color: "#1a1f2e" }, horzLines: { color: "#1a1f2e" } },',
-        '        crosshair: { mode: LightweightCharts.CrosshairMode.Normal },',
-        '        timeScale: { ticksTargetTimestamp: true, timeVisible: true, secondsVisible: false, borderColor: "#1a1f2e" },',
-        '        rightPriceScale: { borderColor: "#1a1f2e", entirelyVisible: true }',
-        '      });',
-        '      console.log("[iframe] Chart created successfully!");',
-        '      ',
-        '      candleSeries = chart.addCandlestickSeries({',
-        '        upColor: "#4ecca3", downColor: "#e74c3c",',
-        '        wickUpColor: "#4ecca3", wickDownColor: "#e74c3c",',
-        '        borderUpColor: "#4ecca3", borderDownColor: "#e74c3c"',
-        '      });',
-        '      console.log("[iframe] Candlestick series added");',
-        '      ',
-        '      chart.addPriceScale({ scaleId: "volume", position: "left", visible: false, scaleMargins: { top: 0.7, bottom: 0 } });',
-        '      volumeSeries = chart.addHistogramSeries({ color: "#4ecca3", priceScaleId: "volume", lastValuePoint: { visible: false } });',
-        '      volumeSeries.applyOptions({ visible: showVolume });',
-        '      console.log("[iframe] Volume series added");',
-        '',
-        '      chart.subscribeCrosshairMove(function(param) {',
-        '        if (!param || !param.time || !candleSeries) return;',
-        '        var c = param.seriesPrices.get(candleSeries);',
-        '        if (!c) return;',
-        '        var vol = volumeData.find(function(v){ return v.time === param.time; });',
-        '        window.parent.postMessage({ type: "ohlcv", o: c.open, h: c.high, l: c.low, cl: c.close, v: vol ? vol.value : 0 }, "*");',
-        '      });',
-        '      console.log("[iframe] Crosshair listener attached");',
-        '',
-        '      new ResizeObserver(function(entries) {',
-        '        if (!chart) return;',
-        '        var r = entries[0].contentRect;',
-        '        if (r.width > 0 && r.height > 0) chart.resize(r.width, r.height);',
-        '      }).observe(el);',
-        '      console.log("[iframe] ResizeObserver attached");',
-        '',
-        '      console.log("[iframe] chartReady posted");',
-        '      window.parent.postMessage({ type: "chartReady" }, "*");',
-        '      ',
-        '    } catch (initErr) {',
-        '      console.error("[iframe] Chart initialization FAILED:", initErr);',
-        '      console.error("[iframe] Error stack:", initErr.stack);',
-        '      document.getElementById("msg").textContent = "Chart init failed: " + initErr.message;',
-        '    }',
-        '  }',
-        '',
-        '  function buildAndRender(trades, tf) {',
-        '    var tfSec = tf * 60;',
-        '    var buckets = {};',
-        '    trades.forEach(function(t) {',
-        '      var b = Math.floor(t.time / tfSec) * tfSec;',
-        '      if (!buckets[b]) buckets[b] = { time: b, open: t.price, high: t.price, low: t.price, close: t.price, volume: 0 };',
-        '      var c = buckets[b];',
-        '      if (t.price > c.high) c.high = t.price;',
-        '      if (t.price < c.low) c.low = t.price;',
-        '      c.close = t.price;',
-        '      c.volume += t.token404;',
-        '    });',
-        '    var sorted = Object.keys(buckets).map(Number).sort(function(a,b){ return a-b; }).map(function(k){ return buckets[k]; });',
-        '',
-        '    // Gap fill',
-        '    var filled = [];',
-        '    for (var i = 0; i < sorted.length; i++) {',
-        '      if (i > 0) {',
-        '        var prev = sorted[i-1], t = prev.time + tfSec;',
-        '        while (t < sorted[i].time) {',
-        '          filled.push({ time: t, open: prev.close, high: prev.close, low: prev.close, close: prev.close, volume: 0 });',
-        '          prev = filled[filled.length-1]; t += tfSec;',
-        '        }',
-        '      }',
-        '      filled.push(sorted[i]);',
-        '    }',
-        '    candleData = filled;',
-        '    volumeData = filled.map(function(c){ return { time: c.time, value: c.volume, color: c.close >= c.open ? "#4ecca344" : "#e74c3c44" }; });',
-        '',
-        '    candleSeries.setData(candleData);',
-        '    volumeSeries.setData(volumeData);',
-        '    chart.timeScale().fitContent();',
-        '    console.log("[iframe] rendered " + candleData.length + " candles at tf=" + tf);',
-        '',
-        '    if (candleData.length > 0) {',
-        '      var last = candleData[candleData.length-1];',
-        '      window.parent.postMessage({ type: "ohlcv", o: last.open, h: last.high, l: last.low, cl: last.close, v: last.volume }, "*");',
-        '    }',
-        '  }',
-        '',
-        '  window.addEventListener("message", function(e) {',
-        '    if (!e.data || !e.data.type) return;',
-        '    switch(e.data.type) {',
-        '      case "trades":',
-        '        document.getElementById("msg").style.display = "none";',
-        '        allTrades = e.data.trades;',
-        '        currentTF = e.data.tf || 60;',
-        '        buildAndRender(allTrades, currentTF);',
-        '        break;',
-        '      case "setTF":',
-        '        currentTF = e.data.tf;',
-        '        if (allTrades.length > 0) buildAndRender(allTrades, currentTF);',
-        '        break;',
-        '      case "setVol":',
-        '        showVolume = e.data.vol;',
-        '        if (volumeSeries) volumeSeries.applyOptions({ visible: showVolume });',
-        '        break;',
-        '      case "noData":',
-        '        document.getElementById("msg").style.display = "flex";',
-        '        document.getElementById("msg").textContent = e.data.msg || "No data";',
-        '        break;',
-        '    }',
-        '  });',
-        '',
-        '  // LWC is inlined above — call init() immediately',
-        '  init();',
-        '})();'
-    ].join('\n');
+    const CHART_SCRIPT = `
+(function() {
+  // Minimal getBoundingClientRect polyfill (for X1 Wallet SES freeze)
+  (function() {
+    try {
+      document.createElement('div').getBoundingClientRect();
+    } catch(e) {
+      const poly = function() {
+        return { width: this.offsetWidth || this.clientWidth || 0, height: this.offsetHeight || this.clientHeight || 0, top:0, left:0, right:0, bottom:0, x:0, y:0 };
+      };
+      try { Object.defineProperty(Element.prototype, 'getBoundingClientRect', {value: poly, writable:true, configurable:true}); }
+      catch(err) {
+        const orig = document.createElement;
+        document.createElement = function(tag) {
+          const el = orig.call(document, tag);
+          el.getBoundingClientRect = poly;
+          return el;
+        };
+      }
+    }
+  })();
 
-    // ── Fetch LWC source in parent, then build blob iframe ──
+  let chart, candleSeries, volumeSeries;
+  let allTrades = [], currentTF = 60, showVolume = true;
+  let candleData = [], volumeData = [];
+
+  function init() {
+    try {
+      const el = document.getElementById('chart');
+      const width = el.clientWidth || 600;
+      const height = el.clientHeight || 420;
+
+      chart = LightweightCharts.createChart(el, {
+        width, height,
+        layout: { background: { color: '#0a0e13' }, textColor: '#8892b0', fontSize: 11, fontFamily: 'Share Tech Mono, monospace' },
+        grid: { vertLines: { color: '#1a1f2e' }, horzLines: { color: '#1a1f2e' } },
+        crosshair: { mode: LightweightCharts.CrosshairMode.Normal },
+        timeScale: { timeVisible: true, secondsVisible: false, borderColor: '#1a1f2e' },
+        rightPriceScale: { borderColor: '#1a1f2e' }
+      });
+
+      candleSeries = chart.addCandlestickSeries({
+        upColor: '#4ecca3', downColor: '#e74c3c',
+        wickUpColor: '#4ecca3', wickDownColor: '#e74c3c',
+        borderUpColor: '#4ecca3', borderDownColor: '#e74c3c'
+      });
+
+      volumeSeries = chart.addHistogramSeries({
+        color: '#4ecca3',
+        priceScaleId: 'volume',
+        lastValuePoint: { visible: false }
+      });
+
+      chart.priceScale('volume').applyOptions({
+        position: 'left',
+        visible: false,
+        scaleMargins: { top: 0.7, bottom: 0 }
+      });
+      volumeSeries.applyOptions({ visible: showVolume });
+
+      chart.subscribeCrosshairMove(param => {
+        if (!param?.time || !candleSeries) return;
+        const c = param.seriesPrices.get(candleSeries);
+        if (!c) return;
+        const vol = volumeData.find(v => v.time === param.time);
+        window.parent.postMessage({ type: 'ohlcv', o: c.open, h: c.high, l: c.low, cl: c.close, v: vol ? vol.value : 0 }, '*');
+      });
+
+      new ResizeObserver(entries => {
+        const r = entries[0].contentRect;
+        if (r.width > 0 && r.height > 0) chart.resize(r.width, r.height);
+      }).observe(el);
+
+      window.parent.postMessage({ type: 'chartReady' }, '*');
+    } catch (err) {
+      console.error('[iframe] Chart init FAILED:', err);
+      document.getElementById('msg').textContent = 'Chart failed: ' + err.message;
+    }
+  }
+
+  function buildAndRender(trades, tf) {
+    const tfSec = tf * 60;
+    const buckets = {};
+    trades.forEach(t => {
+      const b = Math.floor(t.time / tfSec) * tfSec;
+      if (!buckets[b]) buckets[b] = { time: b, open: t.price, high: t.price, low: t.price, close: t.price, volume: 0 };
+      const c = buckets[b];
+      if (t.price > c.high) c.high = t.price;
+      if (t.price < c.low) c.low = t.price;
+      c.close = t.price;
+      c.volume += t.token404;
+    });
+    const sorted = Object.keys(buckets).map(Number).sort((a,b)=>a-b).map(k=>buckets[k]);
+    const filled = [];
+    for (let i = 0; i < sorted.length; i++) {
+      if (i > 0) {
+        let prev = sorted[i-1], t = prev.time + tfSec;
+        while (t < sorted[i].time) {
+          filled.push({ time: t, open: prev.close, high: prev.close, low: prev.close, close: prev.close, volume: 0 });
+          prev = filled[filled.length-1];
+          t += tfSec;
+        }
+      }
+      filled.push(sorted[i]);
+    }
+    candleData = filled;
+    volumeData = filled.map(c => ({ time: c.time, value: c.volume, color: c.close >= c.open ? '#4ecca344' : '#e74c3c44' }));
+    candleSeries.setData(candleData);
+    volumeSeries.setData(volumeData);
+    chart.timeScale().fitContent();
+    if (candleData.length > 0) {
+      const last = candleData[candleData.length-1];
+      window.parent.postMessage({ type: 'ohlcv', o: last.open, h: last.high, l: last.low, cl: last.close, v: last.volume }, '*');
+    }
+  }
+
+  window.addEventListener('message', e => {
+    if (!e.data?.type) return;
+    switch(e.data.type) {
+      case 'trades': allTrades = e.data.trades; currentTF = e.data.tf || 60; buildAndRender(allTrades, currentTF); document.getElementById('msg').style.display = 'none'; break;
+      case 'setTF': currentTF = e.data.tf; if (allTrades.length) buildAndRender(allTrades, currentTF); break;
+      case 'setVol': showVolume = e.data.vol; if (volumeSeries) volumeSeries.applyOptions({ visible: showVolume }); break;
+      case 'noData': document.getElementById('msg').style.display = 'flex'; document.getElementById('msg').textContent = e.data.msg || 'No data'; break;
+    }
+  });
+
+  init();
+})();
+    `;
+
     fetch('https://cdn.jsdelivr.net/npm/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js')
-    .then(function(res) { return res.text(); })
-    .then(function(lwcSource) {
-        console.log('LightweightCharts source fetched, length=' + lwcSource.length);
-
-        // Build iframe with strict CSP to block extension interference
-        var html =
-            '<!DOCTYPE html><html><head>' +
-            '<meta http-equiv="Content-Security-Policy" content="default-src \'none\'; script-src \'unsafe-inline\'; style-src \'unsafe-inline\'; img-src data:;">' +
-            '<style>' +
-            '* { margin:0; padding:0; box-sizing:border-box; }' +
-            'body { background:#0a0e13; overflow:hidden; width:100%; height:100%; }' +
-            '#chart { width:100%; height:100%; }' +
-            '#msg { position:absolute; inset:0; display:flex; align-items:center; justify-content:center;' +
-            '       color:#8892b0; font-family:"Share Tech Mono",monospace; font-size:0.9rem; pointer-events:none; }' +
-            '</style></head><body>' +
-            '<div id="chart"></div>' +
-            '<div id="msg">Loading chart...</div>' +
-            '<script>' + lwcSource + '</script>' +
-            '<script>' + CHART_SCRIPT + '</script>' +
-            '</body></html>';
+      .then(r => r.text())
+      .then(lwc => {
+        const html = `<!DOCTYPE html><html><head>
+          <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline';">
+          <style>*{margin:0;padding:0;box-sizing:border-box}body{background:#0a0e13;overflow:hidden;width:100%;height:100%}#chart{width:100%;height:100%}#msg{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#8892b0;font-family:"Share Tech Mono",monospace;font-size:0.9rem;pointer-events:none}</style>
+        </head><body>
+          <div id="chart"></div>
+          <div id="msg">Loading chart...</div>
+          <script>${lwc}</script>
+          <script>${CHART_SCRIPT}</script>
+        </body></html>`;
 
         iframe = document.createElement('iframe');
         iframe.style.cssText = 'width:100%;height:100%;border:none;display:block;';
-        iframe.setAttribute('sandbox', 'allow-scripts');
-        iframe.setAttribute('srcdoc', html);
-
-        var loadingEl = container.querySelector('.chart-loading');
-        if (loadingEl) loadingEl.remove();
+        iframe.sandbox = 'allow-scripts';
+        iframe.srcdoc = html;
+        container.innerHTML = '';
         container.appendChild(iframe);
+      })
+      .catch(err => console.error('Failed to load Lightweight Charts:', err));
 
-        console.log('Chart iframe created (srcdoc with strict CSP, extension-isolated)');
-    })
-    .catch(function(err) {
-        console.error('Failed to fetch LightweightCharts:', err);
-        var loadingEl = container.querySelector('.chart-loading');
-        if (loadingEl) loadingEl.textContent = 'Chart unavailable';
-    });
-
-    // ── Parse single tx → trade ──
     function parseTrade(sig, txData) {
         if (!txData.result || !txData.result.meta) return null;
-        var meta = txData.result.meta;
+        const meta = txData.result.meta;
         if (!meta.postTokenBalances || !meta.preTokenBalances) return null;
 
-        var token404 = 0;
-        meta.postTokenBalances.forEach(function(postB) {
+        let token404 = 0;
+        meta.postTokenBalances.forEach(postB => {
             if (postB.mint !== TOKEN_CA) return;
-            var preB = meta.preTokenBalances.find(function(p) { return p.accountIndex === postB.accountIndex && p.mint === TOKEN_CA; });
-            var change = Math.abs(getHumanAmount(postB) - (preB ? getHumanAmount(preB) : 0));
+            const preB = meta.preTokenBalances.find(p => p.accountIndex === postB.accountIndex && p.mint === TOKEN_CA);
+            const change = Math.abs(getHumanAmount(postB) - (preB ? getHumanAmount(preB) : 0));
             if (change > token404) token404 = change;
         });
-        meta.preTokenBalances.forEach(function(preB) {
+        meta.preTokenBalances.forEach(preB => {
             if (preB.mint !== TOKEN_CA) return;
-            if (!meta.postTokenBalances.find(function(p) { return p.accountIndex === preB.accountIndex && p.mint === TOKEN_CA; })) {
-                var amt = getHumanAmount(preB);
+            if (!meta.postTokenBalances.find(p => p.accountIndex === preB.accountIndex && p.mint === TOKEN_CA)) {
+                const amt = getHumanAmount(preB);
                 if (amt > token404) token404 = amt;
             }
         });
         if (token404 < 0.01) return null;
 
-        var xnt = 0;
-        meta.postTokenBalances.forEach(function(postB) {
+        let xnt = 0;
+        meta.postTokenBalances.forEach(postB => {
             if (postB.mint !== WXNT_ADDRESS) return;
-            var preB = meta.preTokenBalances.find(function(p) { return p.accountIndex === postB.accountIndex && p.mint === WXNT_ADDRESS; });
-            var change = Math.abs(getHumanAmount(postB) - (preB ? getHumanAmount(preB) : 0));
+            const preB = meta.preTokenBalances.find(p => p.accountIndex === postB.accountIndex && p.mint === WXNT_ADDRESS);
+            const change = Math.abs(getHumanAmount(postB) - (preB ? getHumanAmount(preB) : 0));
             if (change > xnt) xnt = change;
         });
-        meta.preTokenBalances.forEach(function(preB) {
+        meta.preTokenBalances.forEach(preB => {
             if (preB.mint !== WXNT_ADDRESS) return;
-            if (!meta.postTokenBalances.find(function(p) { return p.accountIndex === preB.accountIndex && p.mint === WXNT_ADDRESS; })) {
-                var amt = getHumanAmount(preB);
+            if (!meta.postTokenBalances.find(p => p.accountIndex === preB.accountIndex && p.mint === WXNT_ADDRESS)) {
+                const amt = getHumanAmount(preB);
                 if (amt > xnt) xnt = amt;
             }
         });
         if (xnt === 0 && meta.preBalances && meta.postBalances) {
-            var maxDiff = 0;
-            for (var j = 0; j < meta.preBalances.length; j++) {
-                var diff = Math.abs(meta.postBalances[j] - meta.preBalances[j]) / 1e9;
+            let maxDiff = 0;
+            for (let j = 0; j < meta.preBalances.length; j++) {
+                const diff = Math.abs(meta.postBalances[j] - meta.preBalances[j]) / 1e9;
                 if (diff > maxDiff) maxDiff = diff;
             }
             if (maxDiff > 0.0005) xnt = maxDiff;
@@ -1082,57 +935,52 @@ document.querySelectorAll('.feed-tab').forEach(tab => {
         return null;
     }
 
-    // ── Fetch trades sequentially (respects RPC rate limits) ──
     async function fetchTrades() {
         try {
-            var sigRes = await fetch(X1_RPC, {
+            const sigRes = await fetch(X1_RPC, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'getSignaturesForAddress', params: [TOKEN_CA, { limit: 1000 }] })
             });
-            var sigData = await sigRes.json();
+            const sigData = await sigRes.json();
             if (!sigData.result || sigData.result.length === 0) {
                 sendToChart({ type: 'noData', msg: 'No transactions found' });
                 return;
             }
 
-            var sigs = sigData.result;
-            var trades = [];
-            var MAX_TRADES = 100;
+            const sigs = sigData.result;
+            const trades = [];
+            const MAX_TRADES = 100;
 
-            for (var i = 0; i < sigs.length && trades.length < MAX_TRADES; i++) {
+            for (let i = 0; i < sigs.length && trades.length < MAX_TRADES; i++) {
                 try {
-                    var txRes = await fetch(X1_RPC, {
+                    const txRes = await fetch(X1_RPC, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ jsonrpc: '2.0', id: 2, method: 'getTransaction', params: [sigs[i].signature, { encoding: 'jsonParsed', maxSupportedTransactionVersion: 0 }] })
                     });
-                    var txData = await txRes.json();
-                    if (!txData || !txData.result) continue;
-                    var trade = parseTrade(sigs[i], txData);
+                    const txData = await txRes.json();
+                    if (!txData?.result) continue;
+                    const trade = parseTrade(sigs[i], txData);
                     if (trade) trades.push(trade);
                 } catch(e) { continue; }
             }
 
-            trades.sort(function(a, b) { return a.time - b.time; });
+            trades.sort((a, b) => a.time - b.time);
             allTrades = trades;
-            console.log('Chart: fetched ' + trades.length + ' trades from ' + sigs.length + ' signatures');
 
             if (trades.length > 0) {
                 sendToChart({ type: 'trades', trades: allTrades, tf: currentTF });
 
-                var latest = allTrades[allTrades.length - 1];
-                var priceEl = document.getElementById('chartPrice');
-                var changeEl = document.getElementById('chartPriceChange');
+                const latest = allTrades[allTrades.length - 1];
+                const priceEl = document.getElementById('chartPrice');
+                const changeEl = document.getElementById('chartPriceChange');
                 if (priceEl) priceEl.textContent = latest.price.toFixed(6) + ' XNT';
 
-                var target24h = latest.time - 86400;
-                var price24h = null;
-                for (var k = 0; k < allTrades.length; k++) {
-                    if (allTrades[k].time >= target24h) { price24h = allTrades[k].price; break; }
-                }
-                if (changeEl && price24h && price24h > 0) {
-                    var pct = ((latest.price - price24h) / price24h) * 100;
+                const target24h = latest.time - 86400;
+                const price24h = allTrades.find(t => t.time >= target24h)?.price;
+                if (changeEl && price24h) {
+                    const pct = ((latest.price - price24h) / price24h) * 100;
                     changeEl.textContent = '(' + (pct >= 0 ? '+' : '') + pct.toFixed(2) + '%)';
                     changeEl.className = 'chart-price-change ' + (pct >= 0 ? 'positive' : 'negative');
                 }
@@ -1145,33 +993,29 @@ document.querySelectorAll('.feed-tab').forEach(tab => {
         }
     }
 
-    // ── Timeframe buttons — bound in parent, posted to iframe ──
-    document.querySelectorAll('.chart-tf-btn[data-tf]').forEach(function(btn) {
-        btn.addEventListener('click', function() {
-            var tf = parseInt(btn.getAttribute('data-tf'));
+    document.querySelectorAll('.chart-tf-btn[data-tf]').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const tf = parseInt(btn.getAttribute('data-tf'));
             if (isNaN(tf)) return;
             currentTF = tf;
-            document.querySelectorAll('.chart-tf-btn[data-tf]').forEach(function(b) { b.classList.remove('active'); });
+            document.querySelectorAll('.chart-tf-btn[data-tf]').forEach(b => b.classList.remove('active'));
             btn.classList.add('active');
-            var labels = {1:'1m', 5:'5m', 15:'15m', 60:'1h', 240:'4h', 1440:'1d'};
+            const labels = {1:'1m',5:'5m',15:'15m',60:'1h',240:'4h',1440:'1d'};
             document.querySelector('.chart-timeframe-label').textContent = labels[tf] || tf+'m';
             sendToChart({ type: 'setTF', tf: currentTF });
         });
     });
 
-    // ── Volume toggle ──
-    var volBtn = document.getElementById('volToggle');
+    const volBtn = document.getElementById('volToggle');
     if (volBtn) {
         volBtn.classList.toggle('active', showVolume);
-        volBtn.addEventListener('click', function() {
+        volBtn.addEventListener('click', () => {
             showVolume = !showVolume;
             volBtn.classList.toggle('active', showVolume);
             sendToChart({ type: 'setVol', vol: showVolume });
         });
     }
 
-    // ── Initial fetch + 60s auto-refresh ──
     fetchTrades();
     setInterval(fetchTrades, 60000);
-
 })();
