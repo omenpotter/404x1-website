@@ -722,13 +722,12 @@ document.querySelectorAll('.feed-tab').forEach(tab => {
 // prototype, and srcdoc iframes share the parent's realm in Chrome, so SES
 // bleeds through sandbox="allow-scripts" on srcdoc.
 //
-// Solution: blob URL iframe.
+// Solution: data: URL iframe.
 //   • Parent fetches LWC source (parent has no sandbox, fetch works).
 //   • Builds a complete HTML document with LWC inlined as a <script> block.
-//   • Creates a Blob, gets a blob: URL, sets iframe.src = blobURL.
-//   • Blob URL iframes get a genuinely opaque origin and isolated realm —
-//     Chrome extensions cannot inject content scripts into them regardless of
-//     all_frames or match patterns, because blob: is not matched by <all_urls>.
+//   • Creates a data: URL with encodeURIComponent(), sets iframe.src = dataURL.
+//   • Data URL iframes get an opaque origin and isolated realm —
+//     Chrome extensions cannot inject content scripts into them.
 //   • sandbox="allow-scripts" (no allow-same-origin) further ensures isolation.
 //   • Parent posts trade data via postMessage; iframe posts OHLCV back.
 
@@ -910,8 +909,8 @@ document.querySelectorAll('.feed-tab').forEach(tab => {
             '<script>' + CHART_SCRIPT + '</script>' +
             '</body></html>';
 
-        var blob = new Blob([html], { type: 'text/html' });
-        var blobURL = URL.createObjectURL(blob);
+        // Use data: URL instead of blob: for better CSP compatibility
+        var dataURL = 'data:text/html;charset=utf-8,' + encodeURIComponent(html);
 
         iframe = document.createElement('iframe');
         iframe.style.cssText = 'width:100%;height:100%;border:none;display:block;';
@@ -921,8 +920,8 @@ document.querySelectorAll('.feed-tab').forEach(tab => {
         if (loadingEl) loadingEl.remove();
         container.appendChild(iframe);
 
-        iframe.src = blobURL;
-        console.log('Chart iframe created (blob URL, allow-scripts only, LWC inlined)');
+        iframe.src = dataURL;
+        console.log('Chart iframe created (data URL, allow-scripts only, LWC inlined)');
     })
     .catch(function(err) {
         console.error('Failed to fetch LightweightCharts:', err);
