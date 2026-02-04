@@ -944,8 +944,48 @@ document.querySelectorAll('.feed-tab').forEach(tab => {
         return null;
     }
 
+    // Helper function to update price display
+    function updatePriceDisplay(trades) {
+        if (trades.length === 0) return;
+        
+        const latest = trades[trades.length - 1];
+        const priceEl = document.getElementById('chartPrice');
+        const changeEl = document.getElementById('chartPriceChange');
+        
+        if (priceEl) priceEl.textContent = latest.price.toFixed(6) + ' XNT';
+
+        const target24h = latest.time - 86400;
+        const price24h = trades.find(t => t.time >= target24h)?.price;
+        if (changeEl && price24h) {
+            const pct = ((latest.price - price24h) / price24h) * 100;
+            changeEl.textContent = '(' + (pct >= 0 ? '+' : '') + pct.toFixed(2) + '%)';
+            changeEl.className = 'chart-price-change ' + (pct >= 0 ? 'positive' : 'negative');
+        }
+    }
+
     async function fetchTrades() {
         try {
+            // Check cache first
+            const CACHE_KEY = 'chart_trades_cache';
+            const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+            const cached = localStorage.getItem(CACHE_KEY);
+            
+            if (cached) {
+                try {
+                    const { trades: cachedTrades, timestamp } = JSON.parse(cached);
+                    if (Date.now() - timestamp < CACHE_DURATION && cachedTrades.length > 0) {
+                        console.log(`[Chart] Using cached data (${cachedTrades.length} trades)`);
+                        allTrades = cachedTrades;
+                        sendToChart({ type: 'trades', trades: allTrades, tf: currentTF });
+                        updatePriceDisplay(cachedTrades);
+                        return; // Use cache, skip fetching
+                    }
+                } catch (e) {
+                    console.warn('[Chart] Cache invalid, refetching...');
+                }
+            }
+            
+            console.log('[Chart] Fetching fresh data...');
             console.log('[Chart] Fetching signatures...');
             const sigRes = await fetch(X1_RPC, {
                 method: 'POST',
@@ -960,49 +1000,70 @@ document.querySelectorAll('.feed-tab').forEach(tab => {
 
             const sigs = sigData.result;
             const trades = [];
-            const MAX_TRADES = 200; // Increased to get more valid trades after filtering
-            const MAX_SIGS_TO_CHECK = 500; // Check up to 500 signatures to find valid trades
+            const MAX_TRADES = 200;
+            const MAX_SIGS_TO_CHECK = 300; // Reduced since batching is faster
+            const BATCH_SIZE = 20; // Fetch 20 transactions per request
             
-            console.log(`[Chart] Processing up to ${MAX_SIGS_TO_CHECK} transactions to find ${MAX_TRADES} valid trades...`);
+            console.log(`[Chart] Processing ${MAX_SIGS_TO_CHECK} transactions in batches of ${BATCH_SIZE}...`);
 
-            for (let i = 0; i < Math.min(sigs.length, MAX_SIGS_TO_CHECK) && trades.length < MAX_TRADES; i++) {
-                // Log progress every 50 transactions
-                if (i > 0 && i % 50 === 0) {
-                    console.log(`[Chart] Processed ${i} txs, found ${trades.length} valid trades so far...`);
-                }
+            // Process in batches
+            for (let i = 0; i < Math.min(sigs.length, MAX_SIGS_TO_CHECK) && trades.length < MAX_TRADES; i += BATCH_SIZE) {
+                const batchSigs = sigs.slice(i, i + BATCH_SIZE);
                 
+                // Create batch request (multiple getTransaction calls in one HTTP request)
+                const batchRequest = batchSigs.map((sig, idx) => ({
+                    jsonrpc: '2.0',
+                    id: i + idx,
+                    method: 'getTransaction',
+                    params: [sig.signature, { encoding: 'jsonParsed', maxSupportedTransactionVersion: 0 }]
+                }));
+
                 try {
-                    const txRes = await fetch(X1_RPC, {
+                    // Single HTTP request for entire batch
+                    const batchRes = await fetch(X1_RPC, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ jsonrpc: '2.0', id: 2, method: 'getTransaction', params: [sigs[i].signature, { encoding: 'jsonParsed', maxSupportedTransactionVersion: 0 }] })
+                        body: JSON.stringify(batchRequest)
                     });
-                    const txData = await txRes.json();
-                    if (!txData?.result) continue;
-                    const trade = parseTrade(sigs[i], txData);
-                    if (trade) trades.push(trade);
-                } catch(e) { continue; }
+                    
+                    const batchData = await batchRes.json();
+                    
+                    // Process all responses in the batch
+                    batchData.forEach((txData, idx) => {
+                        if (!txData?.result) return;
+                        const trade = parseTrade(batchSigs[idx], txData);
+                        if (trade) trades.push(trade);
+                    });
+                    
+                    console.log(`[Chart] Processed batch ${Math.floor(i/BATCH_SIZE) + 1}, found ${trades.length} trades so far...`);
+                    
+                } catch(e) {
+                    console.warn('[Chart] Batch request failed:', e);
+                    continue;
+                }
+                
+                // Stop if we have enough trades
+                if (trades.length >= MAX_TRADES) break;
             }
 
             trades.sort((a, b) => a.time - b.time);
             allTrades = trades;
 
+            // Save to cache
+            try {
+                localStorage.setItem(CACHE_KEY, JSON.stringify({
+                    trades: allTrades,
+                    timestamp: Date.now()
+                }));
+                console.log('[Chart] Data cached for 5 minutes');
+            } catch (e) {
+                console.warn('[Chart] Failed to cache data:', e);
+            }
+
             console.log(`[Chart] ✅ Finished! Processed ${Math.min(sigs.length, MAX_SIGS_TO_CHECK)} transactions, found ${trades.length} valid trades`);
             if (trades.length > 0) {
                 sendToChart({ type: 'trades', trades: allTrades, tf: currentTF });
-
-                const latest = allTrades[allTrades.length - 1];
-                const priceEl = document.getElementById('chartPrice');
-                const changeEl = document.getElementById('chartPriceChange');
-                if (priceEl) priceEl.textContent = latest.price.toFixed(6) + ' XNT';
-
-                const target24h = latest.time - 86400;
-                const price24h = allTrades.find(t => t.time >= target24h)?.price;
-                if (changeEl && price24h) {
-                    const pct = ((latest.price - price24h) / price24h) * 100;
-                    changeEl.textContent = '(' + (pct >= 0 ? '+' : '') + pct.toFixed(2) + '%)';
-                    changeEl.className = 'chart-price-change ' + (pct >= 0 ? 'positive' : 'negative');
-                }
+                updatePriceDisplay(allTrades);
             } else {
                 sendToChart({ type: 'noData', msg: 'No swap trades found yet' });
             }
