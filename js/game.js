@@ -1,5 +1,5 @@
 // game.js - Game Integration
-// Uses window.API_BASE from auth.js (loaded first)
+// Uses window.API_ENDPOINTS from auth.js (loaded first)
 
 // Get current user from localStorage
 function getCurrentUser() {
@@ -17,7 +17,7 @@ async function submitScore(score) {
     }
 
     try {
-        const response = await fetch(`${window.API_BASE}/api/gameSubmit`, {
+        const response = await fetch(window.API_ENDPOINTS.gameSubmit, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
@@ -51,7 +51,7 @@ async function loadUserStats() {
     if (!user) return;
 
     try {
-        const response = await fetch(`${window.API_BASE}/api/gameStats?user_id=${user.id}`);
+        const response = await fetch(`${window.API_ENDPOINTS.gameStats}?user_id=${user.id}`);
         const data = await response.json();
 
         if (data.success) {
