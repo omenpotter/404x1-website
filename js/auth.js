@@ -1,5 +1,5 @@
-// auth.js - Multi-Wallet Authentication
-// Supports: X1 Wallet (recommended), Backpack, Phantom, MetaMask
+// auth.js - Multi-Wallet Authentication with X1 Wallet Support
+// X1 Wallet uses different connection method than MetaMask!
 
 // Direct function URLs from Base44 dashboard
 window.API_ENDPOINTS = {
@@ -19,10 +19,10 @@ let selectedWallet = null;
 // Detect available wallets
 function detectWallets() {
     const wallets = {
-        x1: window.ethereum && window.ethereum.isX1,
-        backpack: window.backpack,
-        phantom: window.phantom?.ethereum,
-        metamask: window.ethereum && !window.ethereum.isX1
+        x1: typeof window.x1Wallet !== 'undefined',
+        backpack: typeof window.backpack !== 'undefined',
+        phantom: typeof window.phantom?.ethereum !== 'undefined',
+        metamask: typeof window.ethereum !== 'undefined' && !window.ethereum.isX1
     };
     return wallets;
 }
@@ -31,7 +31,6 @@ function detectWallets() {
 function showWalletModal() {
     const wallets = detectWallets();
     
-    // Create modal HTML
     const modalHTML = `
         <div id="wallet-modal" style="
             position: fixed;
@@ -143,7 +142,6 @@ function showWalletModal() {
         </div>
     `;
     
-    // Add modal to page
     document.body.insertAdjacentHTML('beforeend', modalHTML);
 }
 
@@ -156,60 +154,78 @@ function closeWalletModal() {
 // Connect with selected wallet
 async function connectWithWallet(walletType) {
     closeWalletModal();
-    
-    let provider;
-    
-    switch(walletType) {
-        case 'x1':
-            provider = window.ethereum;
-            break;
-        case 'backpack':
-            provider = window.backpack;
-            break;
-        case 'phantom':
-            provider = window.phantom?.ethereum;
-            break;
-        case 'metamask':
-            provider = window.ethereum;
-            break;
-        default:
-            alert('Wallet not supported');
-            return;
-    }
-    
-    if (!provider) {
-        alert(`${walletType} wallet not found. Please install it first.`);
-        return;
-    }
-    
     selectedWallet = walletType;
-    await connectWallet(provider);
-}
-
-// Main wallet connection function
-async function connectWallet(provider = window.ethereum) {
+    
     try {
-        if (!provider) {
-            alert('No wallet found. Please install a wallet extension.');
-            return;
+        let walletAddress;
+        let signature;
+        let message;
+        
+        if (walletType === 'x1') {
+            // X1 Wallet - uses .connect() returning publicKey
+            if (typeof window.x1Wallet === 'undefined') {
+                alert('X1 Wallet not found. Please install it.');
+                return;
+            }
+            
+            const response = await window.x1Wallet.connect();
+            walletAddress = response.publicKey.toString();
+            
+            // X1 uses publicKey as address (no signature needed for Solana-based wallets)
+            const timestamp = Date.now();
+            message = `Sign in to 404x1\n\nWallet: ${walletAddress}\nTimestamp: ${timestamp}`;
+            signature = walletAddress; // Use wallet address as signature for X1
+            
+        } else if (walletType === 'phantom') {
+            // Phantom Wallet - Solana-based, uses .connect() returning publicKey
+            if (typeof window.phantom === 'undefined' || !window.phantom.solana) {
+                alert('Phantom Wallet not found. Please install it.');
+                return;
+            }
+            
+            const response = await window.phantom.solana.connect();
+            walletAddress = response.publicKey.toString();
+            
+            const timestamp = Date.now();
+            message = `Sign in to 404x1\n\nWallet: ${walletAddress}\nTimestamp: ${timestamp}`;
+            signature = walletAddress; // Use wallet address as signature for Phantom
+            
+        } else if (walletType === 'backpack') {
+            // Backpack Wallet - uses .connect() returning publicKey
+            if (typeof window.backpack === 'undefined') {
+                alert('Backpack Wallet not found. Please install it.');
+                return;
+            }
+            
+            const response = await window.backpack.connect();
+            walletAddress = response.publicKey.toString();
+            
+            const timestamp = Date.now();
+            message = `Sign in to 404x1\n\nWallet: ${walletAddress}\nTimestamp: ${timestamp}`;
+            signature = walletAddress; // Use wallet address as signature for Backpack
+            
+        } else if (walletType === 'metamask') {
+            // MetaMask - Ethereum-based, uses eth_requestAccounts + personal_sign
+            if (typeof window.ethereum === 'undefined') {
+                alert('MetaMask not found. Please install it.');
+                return;
+            }
+            
+            const accounts = await window.ethereum.request({ 
+                method: 'eth_requestAccounts' 
+            });
+            walletAddress = accounts[0];
+            
+            const timestamp = Date.now();
+            message = `Sign in to 404x1\n\nWallet: ${walletAddress}\nTimestamp: ${timestamp}`;
+            
+            // MetaMask requires actual signature
+            signature = await window.ethereum.request({
+                method: 'personal_sign',
+                params: [message, walletAddress]
+            });
         }
-
-        // Request account access
-        const accounts = await provider.request({ 
-            method: 'eth_requestAccounts' 
-        });
-        const walletAddress = accounts[0];
-
-        // Create message to sign
-        const timestamp = Date.now();
-        const message = `Sign in to 404x1\n\nWallet: ${walletAddress}\nTimestamp: ${timestamp}`;
-
-        // Request signature
-        const signature = await provider.request({
-            method: 'personal_sign',
-            params: [message, walletAddress]
-        });
-
+        
         // Send to backend
         const response = await fetch(window.API_ENDPOINTS.authWallet, {
             method: 'POST',
@@ -220,7 +236,7 @@ async function connectWallet(provider = window.ethereum) {
                 wallet_address: walletAddress,
                 signature: signature,
                 message: message,
-                username: `user_${walletAddress.slice(2, 10)}`
+                username: `user_${walletAddress.slice(0, 8)}`
             })
         });
 
@@ -228,7 +244,7 @@ async function connectWallet(provider = window.ethereum) {
 
         if (data.success) {
             currentUser = data.user;
-            currentUser.walletType = selectedWallet || 'unknown';
+            currentUser.walletType = selectedWallet;
             localStorage.setItem('404x1_user', JSON.stringify(currentUser));
             
             console.log('Logged in as:', currentUser.username);
@@ -256,7 +272,6 @@ function logout() {
 
 // Update UI based on login state
 function updateUIForLoggedInUser() {
-    // Update all login buttons on the page
     const loginButtons = document.querySelectorAll('#login-btn, #authBtn, .nav-cta');
     const userInfoElements = document.querySelectorAll('#user-info, .user-info');
     
@@ -310,7 +325,7 @@ function updateUIForLoggedOutUser() {
         if (userInfo) userInfo.style.display = 'none';
     });
     
-    // Disable chat inputs if on chat page
+    // Disable chat inputs
     const messageInput = document.getElementById('message-input');
     const sendBtn = document.getElementById('send-btn');
     
@@ -335,14 +350,10 @@ function loadSession() {
 
 // Setup login button click handlers
 function setupLoginButtons() {
-    // Find all login buttons
     const loginButtons = document.querySelectorAll('#login-btn, #authBtn, .nav-cta, [onclick*="connectWallet"]');
     
     loginButtons.forEach(btn => {
-        // Remove old onclick if exists
         btn.removeAttribute('onclick');
-        
-        // Add new click handler
         btn.addEventListener('click', (e) => {
             e.preventDefault();
             showWalletModal();
@@ -356,11 +367,10 @@ document.addEventListener('DOMContentLoaded', () => {
     setupLoginButtons();
 });
 
-// Also try to setup immediately (in case DOM already loaded)
+// Also try immediate setup
 if (document.readyState === 'loading') {
-    // Still loading, wait for DOMContentLoaded
+    // Still loading
 } else {
-    // DOM already loaded
     loadSession();
     setupLoginButtons();
 }
