@@ -1,10 +1,9 @@
 // leaderboard.js - Leaderboard Integration
-
-const API_BASE = 'https://preview-sandbox--b9ecea76254fe996d19766a671cb1856.base44.app';
+// Uses window.API_BASE from auth.js (loaded first)
 
 async function loadLeaderboard(sortBy = 'reputation_points', limit = 100) {
     try {
-        const response = await fetch(`${API_BASE}/api/gameLeaderboard?limit=${limit}&sortBy=${sortBy}`);
+        const response = await fetch(`${window.API_BASE}/api/gameLeaderboard?limit=${limit}&sortBy=${sortBy}`);
         const data = await response.json();
 
         if (data.success) {
