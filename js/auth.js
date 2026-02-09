@@ -1,7 +1,6 @@
-// auth.js - Multi-Wallet Authentication with X1 Wallet Support
-// X1 Wallet uses different connection method than MetaMask!
+// auth.js - Simple Multi-Wallet Authentication (Username Only)
+// Works with X1, Phantom, Backpack, MetaMask
 
-// Direct function URLs from Base44 dashboard
 window.API_ENDPOINTS = {
     authWallet: 'https://code-quest-zone.base44.app/api/apps/6988b1920d2dc3e06784fc73/functions/authWallet',
     chatSend: 'https://code-quest-zone.base44.app/api/apps/6988b1920d2dc3e06784fc73/functions/chatSend',
@@ -12,19 +11,18 @@ window.API_ENDPOINTS = {
     gameStats: 'https://code-quest-zone.base44.app/api/apps/6988b1920d2dc3e06784fc73/functions/gameStats'
 };
 
-// Global state
 let currentUser = null;
-let selectedWallet = null;
+let currentWalletAddress = null;
+let selectedWalletType = null;
 
 // Detect available wallets
 function detectWallets() {
-    const wallets = {
+    return {
         x1: typeof window.x1Wallet !== 'undefined',
+        phantom: typeof window.phantom?.solana !== 'undefined',
         backpack: typeof window.backpack !== 'undefined',
-        phantom: typeof window.phantom?.ethereum !== 'undefined',
-        metamask: typeof window.ethereum !== 'undefined' && !window.ethereum.isX1
+        metamask: typeof window.ethereum !== 'undefined'
     };
-    return wallets;
 }
 
 // Show wallet selection modal
@@ -38,7 +36,7 @@ function showWalletModal() {
             left: 0;
             width: 100%;
             height: 100%;
-            background: rgba(0, 0, 0, 0.8);
+            background: rgba(0, 0, 0, 0.9);
             display: flex;
             align-items: center;
             justify-content: center;
@@ -56,7 +54,7 @@ function showWalletModal() {
                 
                 <div style="display: flex; flex-direction: column; gap: 15px;">
                     ${wallets.x1 ? `
-                        <button onclick="connectWithWallet('x1')" style="
+                        <button onclick="connectWallet('x1')" style="
                             background: linear-gradient(135deg, #00ff00, #00cc00);
                             color: #000;
                             border: none;
@@ -89,21 +87,8 @@ function showWalletModal() {
                         </div>
                     `}
                     
-                    ${wallets.backpack ? `
-                        <button onclick="connectWithWallet('backpack')" style="
-                            background: #1a1a1a;
-                            color: #fff;
-                            border: 2px solid #666;
-                            padding: 15px 20px;
-                            border-radius: 8px;
-                            font-size: 16px;
-                            font-weight: bold;
-                            cursor: pointer;
-                        ">Backpack</button>
-                    ` : ''}
-                    
                     ${wallets.phantom ? `
-                        <button onclick="connectWithWallet('phantom')" style="
+                        <button onclick="connectWallet('phantom')" style="
                             background: #1a1a1a;
                             color: #fff;
                             border: 2px solid #666;
@@ -115,8 +100,21 @@ function showWalletModal() {
                         ">Phantom</button>
                     ` : ''}
                     
+                    ${wallets.backpack ? `
+                        <button onclick="connectWallet('backpack')" style="
+                            background: #1a1a1a;
+                            color: #fff;
+                            border: 2px solid #666;
+                            padding: 15px 20px;
+                            border-radius: 8px;
+                            font-size: 16px;
+                            font-weight: bold;
+                            cursor: pointer;
+                        ">Backpack</button>
+                    ` : ''}
+                    
                     ${wallets.metamask ? `
-                        <button onclick="connectWithWallet('metamask')" style="
+                        <button onclick="connectWallet('metamask')" style="
                             background: #1a1a1a;
                             color: #fff;
                             border: 2px solid #666;
@@ -129,7 +127,7 @@ function showWalletModal() {
                     ` : ''}
                 </div>
                 
-                <button onclick="closeWalletModal()" style="
+                <button onclick="closeModal()" style="
                     background: transparent;
                     color: #666;
                     border: none;
@@ -145,132 +143,235 @@ function showWalletModal() {
     document.body.insertAdjacentHTML('beforeend', modalHTML);
 }
 
-// Close wallet modal
-function closeWalletModal() {
-    const modal = document.getElementById('wallet-modal');
-    if (modal) modal.remove();
+// Show username input modal
+function showUsernameModal() {
+    const modalHTML = `
+        <div id="username-modal" style="
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.9);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 10000;
+        ">
+            <div style="
+                background: #1a1a1a;
+                border: 2px solid #00ff00;
+                border-radius: 10px;
+                padding: 30px;
+                max-width: 400px;
+                width: 90%;
+            ">
+                <h2 style="color: #00ff00; margin-bottom: 10px; text-align: center;">Choose Username</h2>
+                <p style="color: #888; font-size: 14px; text-align: center; margin-bottom: 20px;">
+                    4-12 characters (letters, numbers, underscore)
+                </p>
+                
+                <input 
+                    type="text" 
+                    id="username-input" 
+                    placeholder="Enter username..."
+                    maxlength="12"
+                    style="
+                        width: 100%;
+                        padding: 15px;
+                        background: #0a0a0a;
+                        border: 2px solid #333;
+                        border-radius: 8px;
+                        color: #fff;
+                        font-size: 16px;
+                        margin-bottom: 10px;
+                    "
+                />
+                
+                <div id="username-error" style="
+                    color: #ff4444;
+                    font-size: 12px;
+                    margin-bottom: 15px;
+                    min-height: 20px;
+                "></div>
+                
+                <button onclick="submitUsername()" style="
+                    background: linear-gradient(135deg, #00ff00, #00cc00);
+                    color: #000;
+                    border: none;
+                    padding: 15px;
+                    border-radius: 8px;
+                    font-size: 16px;
+                    font-weight: bold;
+                    cursor: pointer;
+                    width: 100%;
+                ">Continue</button>
+                
+                <button onclick="closeModal()" style="
+                    background: transparent;
+                    color: #666;
+                    border: none;
+                    padding: 15px;
+                    width: 100%;
+                    margin-top: 10px;
+                    cursor: pointer;
+                ">Cancel</button>
+            </div>
+        </div>
+    `;
+    
+    document.body.insertAdjacentHTML('beforeend', modalHTML);
+    
+    // Focus input
+    setTimeout(() => {
+        document.getElementById('username-input').focus();
+    }, 100);
+    
+    // Enter key to submit
+    document.getElementById('username-input').addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+            submitUsername();
+        }
+    });
 }
 
-// Connect with selected wallet
-async function connectWithWallet(walletType) {
-    closeWalletModal();
-    selectedWallet = walletType;
+// Connect wallet
+async function connectWallet(walletType) {
+    closeModal();
+    selectedWalletType = walletType;
     
     try {
         let walletAddress;
-        let signature;
-        let message;
         
         if (walletType === 'x1') {
-            // X1 Wallet - uses .connect() returning publicKey
             if (typeof window.x1Wallet === 'undefined') {
-                alert('X1 Wallet not found. Please install it.');
+                alert('X1 Wallet not installed');
                 return;
             }
-            
             const response = await window.x1Wallet.connect();
             walletAddress = response.publicKey.toString();
             
-            // X1 uses publicKey as address (no signature needed for Solana-based wallets)
-            const timestamp = Date.now();
-            message = `Sign in to 404x1\n\nWallet: ${walletAddress}\nTimestamp: ${timestamp}`;
-            signature = walletAddress; // Use wallet address as signature for X1
-            
         } else if (walletType === 'phantom') {
-            // Phantom Wallet - Solana-based, uses .connect() returning publicKey
-            if (typeof window.phantom === 'undefined' || !window.phantom.solana) {
-                alert('Phantom Wallet not found. Please install it.');
+            if (!window.phantom?.solana) {
+                alert('Phantom Wallet not installed');
                 return;
             }
-            
             const response = await window.phantom.solana.connect();
             walletAddress = response.publicKey.toString();
             
-            const timestamp = Date.now();
-            message = `Sign in to 404x1\n\nWallet: ${walletAddress}\nTimestamp: ${timestamp}`;
-            signature = walletAddress; // Use wallet address as signature for Phantom
-            
         } else if (walletType === 'backpack') {
-            // Backpack Wallet - uses .connect() returning publicKey
             if (typeof window.backpack === 'undefined') {
-                alert('Backpack Wallet not found. Please install it.');
+                alert('Backpack Wallet not installed');
                 return;
             }
-            
             const response = await window.backpack.connect();
             walletAddress = response.publicKey.toString();
             
-            const timestamp = Date.now();
-            message = `Sign in to 404x1\n\nWallet: ${walletAddress}\nTimestamp: ${timestamp}`;
-            signature = walletAddress; // Use wallet address as signature for Backpack
-            
         } else if (walletType === 'metamask') {
-            // MetaMask - Ethereum-based, uses eth_requestAccounts + personal_sign
             if (typeof window.ethereum === 'undefined') {
-                alert('MetaMask not found. Please install it.');
+                alert('MetaMask not installed');
                 return;
             }
-            
             const accounts = await window.ethereum.request({ 
                 method: 'eth_requestAccounts' 
             });
             walletAddress = accounts[0];
-            
-            const timestamp = Date.now();
-            message = `Sign in to 404x1\n\nWallet: ${walletAddress}\nTimestamp: ${timestamp}`;
-            
-            // MetaMask requires actual signature
-            signature = await window.ethereum.request({
-                method: 'personal_sign',
-                params: [message, walletAddress]
-            });
         }
         
-        // Send to backend
+        currentWalletAddress = walletAddress;
+        
+        // Try to login with existing wallet
+        await tryLogin('temp_check');
+        
+    } catch (error) {
+        console.error('Wallet connection error:', error);
+        alert('Failed to connect wallet. Please try again.');
+    }
+}
+
+// Try to login
+async function tryLogin(username) {
+    try {
         const response = await fetch(window.API_ENDPOINTS.authWallet, {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-                wallet_address: walletAddress,
-                signature: signature,
-                message: message,
-                username: `user_${walletAddress.slice(0, 8)}`
+                wallet_address: currentWalletAddress,
+                username: username
             })
         });
-
+        
         const data = await response.json();
-
+        
         if (data.success) {
+            // Success! Wallet exists or username accepted
             currentUser = data.user;
-            currentUser.walletType = selectedWallet;
             localStorage.setItem('404x1_user', JSON.stringify(currentUser));
             
-            console.log('Logged in as:', currentUser.username);
             alert(`Welcome ${currentUser.username}!`);
-            
             updateUIForLoggedInUser();
+            
+        } else if (data.error && data.error.includes('Username already taken')) {
+            // Show error and ask for different username
+            const errorDiv = document.getElementById('username-error');
+            if (errorDiv) {
+                errorDiv.textContent = 'Username taken. Please choose another.';
+            } else {
+                alert(data.error);
+            }
         } else {
-            alert('Login failed: ' + (data.error || 'Unknown error'));
+            // New wallet - ask for username
+            showUsernameModal();
         }
-
+        
     } catch (error) {
         console.error('Login error:', error);
         alert('Login failed. Please try again.');
     }
 }
 
+// Submit username
+async function submitUsername() {
+    const input = document.getElementById('username-input');
+    const username = input.value.trim();
+    const errorDiv = document.getElementById('username-error');
+    
+    // Validate
+    if (username.length < 4 || username.length > 12) {
+        errorDiv.textContent = 'Username must be 4-12 characters';
+        return;
+    }
+    
+    if (!/^[a-zA-Z0-9_]+$/.test(username)) {
+        errorDiv.textContent = 'Only letters, numbers, and underscore allowed';
+        return;
+    }
+    
+    errorDiv.textContent = '';
+    
+    // Try to create account
+    closeModal();
+    await tryLogin(username);
+}
+
 // Logout
 function logout() {
     currentUser = null;
-    selectedWallet = null;
+    currentWalletAddress = null;
     localStorage.removeItem('404x1_user');
     updateUIForLoggedOutUser();
-    alert('Logged out successfully');
 }
 
-// Update UI based on login state
+// Close modal
+function closeModal() {
+    const modals = ['wallet-modal', 'username-modal'];
+    modals.forEach(id => {
+        const modal = document.getElementById(id);
+        if (modal) modal.remove();
+    });
+}
+
+// Update UI
 function updateUIForLoggedInUser() {
     const loginButtons = document.querySelectorAll('#login-btn, #authBtn, .nav-cta');
     const userInfoElements = document.querySelectorAll('#user-info, .user-info');
@@ -281,36 +382,28 @@ function updateUIForLoggedInUser() {
     
     userInfoElements.forEach(userInfo => {
         if (userInfo) {
-            userInfo.style.display = 'block';
+            userInfo.style.display = 'flex';
             userInfo.innerHTML = `
-                <div style="display: flex; align-items: center; gap: 10px;">
-                    <span style="color: #00ff00;">${currentUser.username}</span>
-                    <span style="color: #fff;">${currentUser.reputation_points} RP</span>
-                    <button onclick="logout()" style="
-                        background: rgba(255, 0, 0, 0.2);
-                        border: 1px solid #ff0000;
-                        color: #ff0000;
-                        padding: 5px 15px;
-                        border-radius: 5px;
-                        cursor: pointer;
-                        font-size: 12px;
-                    ">LOGOUT</button>
-                </div>
+                <span style="color: #00ff00;">${currentUser.username}</span>
+                <span style="color: #fff; margin-left: 10px;">${currentUser.reputation_points} RP</span>
+                <button onclick="logout()" style="
+                    background: rgba(255, 0, 0, 0.2);
+                    border: 1px solid #ff0000;
+                    color: #ff0000;
+                    padding: 5px 15px;
+                    border-radius: 5px;
+                    cursor: pointer;
+                    margin-left: 15px;
+                ">LOGOUT</button>
             `;
         }
     });
     
-    // Enable chat inputs if on chat page
+    // Enable chat if on chat page
     const messageInput = document.getElementById('message-input');
     const sendBtn = document.getElementById('send-btn');
-    
-    if (messageInput) {
-        messageInput.disabled = false;
-        messageInput.placeholder = 'Type your message...';
-    }
-    if (sendBtn) {
-        sendBtn.disabled = false;
-    }
+    if (messageInput) messageInput.disabled = false;
+    if (sendBtn) sendBtn.disabled = false;
 }
 
 function updateUIForLoggedOutUser() {
@@ -325,34 +418,25 @@ function updateUIForLoggedOutUser() {
         if (userInfo) userInfo.style.display = 'none';
     });
     
-    // Disable chat inputs
     const messageInput = document.getElementById('message-input');
     const sendBtn = document.getElementById('send-btn');
-    
-    if (messageInput) {
-        messageInput.disabled = true;
-        messageInput.placeholder = 'Please login to chat';
-    }
-    if (sendBtn) {
-        sendBtn.disabled = true;
-    }
+    if (messageInput) messageInput.disabled = true;
+    if (sendBtn) sendBtn.disabled = true;
 }
 
-// Load saved session
+// Load session
 function loadSession() {
     const saved = localStorage.getItem('404x1_user');
     if (saved) {
         currentUser = JSON.parse(saved);
-        selectedWallet = currentUser.walletType || null;
         updateUIForLoggedInUser();
     }
 }
 
-// Setup login button click handlers
+// Setup login buttons
 function setupLoginButtons() {
-    const loginButtons = document.querySelectorAll('#login-btn, #authBtn, .nav-cta, [onclick*="connectWallet"]');
-    
-    loginButtons.forEach(btn => {
+    const buttons = document.querySelectorAll('#login-btn, #authBtn, .nav-cta');
+    buttons.forEach(btn => {
         btn.removeAttribute('onclick');
         btn.addEventListener('click', (e) => {
             e.preventDefault();
@@ -361,22 +445,20 @@ function setupLoginButtons() {
     });
 }
 
-// Initialize on page load
+// Initialize
 document.addEventListener('DOMContentLoaded', () => {
     loadSession();
     setupLoginButtons();
 });
 
-// Also try immediate setup
-if (document.readyState === 'loading') {
-    // Still loading
-} else {
+if (document.readyState !== 'loading') {
     loadSession();
     setupLoginButtons();
 }
 
-// Make functions globally available
-window.connectWithWallet = connectWithWallet;
-window.closeWalletModal = closeWalletModal;
+// Global functions
+window.connectWallet = connectWallet;
+window.submitUsername = submitUsername;
+window.closeModal = closeModal;
 window.logout = logout;
 window.showWalletModal = showWalletModal;
