@@ -1,7 +1,5 @@
 // chat.js - Chat Integration
-// Add this to your chat.html page
-
-const API_BASE = 'https://preview-sandbox--b9ecea76254fe996d19766a671cb1856.base44.app';
+// Uses window.API_BASE from auth.js (loaded first)
 
 // Get current user from localStorage
 function getCurrentUser() {
@@ -12,7 +10,7 @@ function getCurrentUser() {
 // Load chat messages
 async function loadMessages() {
     try {
-        const response = await fetch(`${API_BASE}/api/chatHistory?limit=100&offset=0`);
+        const response = await fetch(`${window.API_BASE}/api/chatHistory?limit=100&offset=0`);
         const data = await response.json();
 
         if (data.success) {
@@ -70,7 +68,7 @@ async function sendMessage() {
     }
 
     try {
-        const response = await fetch(`${API_BASE}/api/chatSend`, {
+        const response = await fetch(`${window.API_BASE}/api/chatSend`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
