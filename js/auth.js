@@ -1,5 +1,5 @@
-// auth.js - Simple Multi-Wallet Authentication (Username Only)
-// Works with X1, Phantom, Backpack, MetaMask
+// auth.js - Multi-Wallet Auth (Username FIRST, then connect wallet)
+// Username is permanent and cannot be changed
 
 window.API_ENDPOINTS = {
     authWallet: 'https://code-quest-zone.base44.app/api/apps/6988b1920d2dc3e06784fc73/functions/authWallet',
@@ -12,8 +12,7 @@ window.API_ENDPOINTS = {
 };
 
 let currentUser = null;
-let currentWalletAddress = null;
-let selectedWalletType = null;
+let pendingUsername = null; // Store username before wallet connection
 
 // Detect available wallets
 function detectWallets() {
@@ -25,7 +24,128 @@ function detectWallets() {
     };
 }
 
-// Show wallet selection modal
+// Step 1: Show username input FIRST
+function showUsernameModal() {
+    const modalHTML = `
+        <div id="username-modal" style="
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.9);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 10000;
+        ">
+            <div style="
+                background: #1a1a1a;
+                border: 2px solid #00ff00;
+                border-radius: 10px;
+                padding: 30px;
+                max-width: 400px;
+                width: 90%;
+            ">
+                <h2 style="color: #00ff00; margin-bottom: 10px; text-align: center;">Choose Your Username</h2>
+                <p style="color: #888; font-size: 14px; text-align: center; margin-bottom: 20px;">
+                    4-12 characters (letters, numbers, underscore)<br>
+                    <strong style="color: #ff9900;">⚠️ Cannot be changed later!</strong>
+                </p>
+                
+                <input 
+                    type="text" 
+                    id="username-input" 
+                    placeholder="Enter username..."
+                    maxlength="12"
+                    style="
+                        width: 100%;
+                        padding: 15px;
+                        background: #0a0a0a;
+                        border: 2px solid #333;
+                        border-radius: 8px;
+                        color: #fff;
+                        font-size: 16px;
+                        margin-bottom: 10px;
+                        box-sizing: border-box;
+                    "
+                />
+                
+                <div id="username-error" style="
+                    color: #ff4444;
+                    font-size: 12px;
+                    margin-bottom: 15px;
+                    min-height: 20px;
+                "></div>
+                
+                <button onclick="proceedToWalletSelection()" style="
+                    background: linear-gradient(135deg, #00ff00, #00cc00);
+                    color: #000;
+                    border: none;
+                    padding: 15px;
+                    border-radius: 8px;
+                    font-size: 16px;
+                    font-weight: bold;
+                    cursor: pointer;
+                    width: 100%;
+                ">Continue to Wallet Selection</button>
+                
+                <button onclick="closeModal()" style="
+                    background: transparent;
+                    color: #666;
+                    border: none;
+                    padding: 15px;
+                    width: 100%;
+                    margin-top: 10px;
+                    cursor: pointer;
+                ">Cancel</button>
+            </div>
+        </div>
+    `;
+    
+    document.body.insertAdjacentHTML('beforeend', modalHTML);
+    
+    // Focus input
+    setTimeout(() => {
+        const input = document.getElementById('username-input');
+        if (input) input.focus();
+    }, 100);
+    
+    // Enter key to submit
+    const input = document.getElementById('username-input');
+    if (input) {
+        input.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                proceedToWalletSelection();
+            }
+        });
+    }
+}
+
+// Step 2: Validate username and show wallet selection
+function proceedToWalletSelection() {
+    const input = document.getElementById('username-input');
+    const username = input.value.trim();
+    const errorDiv = document.getElementById('username-error');
+    
+    // Validate
+    if (username.length < 4 || username.length > 12) {
+        errorDiv.textContent = 'Username must be 4-12 characters';
+        return;
+    }
+    
+    if (!/^[a-zA-Z0-9_]+$/.test(username)) {
+        errorDiv.textContent = 'Only letters, numbers, and underscore allowed';
+        return;
+    }
+    
+    // Store username and proceed to wallet selection
+    pendingUsername = username;
+    closeModal();
+    showWalletModal();
+}
+
+// Step 3: Show wallet selection modal
 function showWalletModal() {
     const wallets = detectWallets();
     
@@ -50,7 +170,10 @@ function showWalletModal() {
                 max-width: 400px;
                 width: 90%;
             ">
-                <h2 style="color: #00ff00; margin-bottom: 20px; text-align: center;">Connect Wallet</h2>
+                <h2 style="color: #00ff00; margin-bottom: 10px; text-align: center;">Connect Wallet</h2>
+                <p style="color: #888; font-size: 14px; text-align: center; margin-bottom: 20px;">
+                    Username: <strong style="color: #00ff00;">${pendingUsername}</strong>
+                </p>
                 
                 <div style="display: flex; flex-direction: column; gap: 15px;">
                     ${wallets.x1 ? `
@@ -127,7 +250,7 @@ function showWalletModal() {
                     ` : ''}
                 </div>
                 
-                <button onclick="closeModal()" style="
+                <button onclick="goBackToUsername()" style="
                     background: transparent;
                     color: #666;
                     border: none;
@@ -135,7 +258,7 @@ function showWalletModal() {
                     width: 100%;
                     margin-top: 20px;
                     cursor: pointer;
-                ">Cancel</button>
+                ">← Back</button>
             </div>
         </div>
     `;
@@ -143,106 +266,20 @@ function showWalletModal() {
     document.body.insertAdjacentHTML('beforeend', modalHTML);
 }
 
-// Show username input modal
-function showUsernameModal() {
-    const modalHTML = `
-        <div id="username-modal" style="
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.9);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            z-index: 10000;
-        ">
-            <div style="
-                background: #1a1a1a;
-                border: 2px solid #00ff00;
-                border-radius: 10px;
-                padding: 30px;
-                max-width: 400px;
-                width: 90%;
-            ">
-                <h2 style="color: #00ff00; margin-bottom: 10px; text-align: center;">Choose Username</h2>
-                <p style="color: #888; font-size: 14px; text-align: center; margin-bottom: 20px;">
-                    4-12 characters (letters, numbers, underscore)
-                </p>
-                
-                <input 
-                    type="text" 
-                    id="username-input" 
-                    placeholder="Enter username..."
-                    maxlength="12"
-                    style="
-                        width: 100%;
-                        padding: 15px;
-                        background: #0a0a0a;
-                        border: 2px solid #333;
-                        border-radius: 8px;
-                        color: #fff;
-                        font-size: 16px;
-                        margin-bottom: 10px;
-                    "
-                />
-                
-                <div id="username-error" style="
-                    color: #ff4444;
-                    font-size: 12px;
-                    margin-bottom: 15px;
-                    min-height: 20px;
-                "></div>
-                
-                <button onclick="submitUsername()" style="
-                    background: linear-gradient(135deg, #00ff00, #00cc00);
-                    color: #000;
-                    border: none;
-                    padding: 15px;
-                    border-radius: 8px;
-                    font-size: 16px;
-                    font-weight: bold;
-                    cursor: pointer;
-                    width: 100%;
-                ">Continue</button>
-                
-                <button onclick="closeModal()" style="
-                    background: transparent;
-                    color: #666;
-                    border: none;
-                    padding: 15px;
-                    width: 100%;
-                    margin-top: 10px;
-                    cursor: pointer;
-                ">Cancel</button>
-            </div>
-        </div>
-    `;
-    
-    document.body.insertAdjacentHTML('beforeend', modalHTML);
-    
-    // Focus input
-    setTimeout(() => {
-        document.getElementById('username-input').focus();
-    }, 100);
-    
-    // Enter key to submit
-    document.getElementById('username-input').addEventListener('keypress', (e) => {
-        if (e.key === 'Enter') {
-            submitUsername();
-        }
-    });
+// Go back to username input
+function goBackToUsername() {
+    closeModal();
+    showUsernameModal();
 }
 
-// Connect wallet
+// Step 4: Connect wallet and create account
 async function connectWallet(walletType) {
     closeModal();
-    selectedWalletType = walletType;
     
     try {
         let walletAddress;
         
+        // Connect based on wallet type
         if (walletType === 'x1') {
             if (typeof window.x1Wallet === 'undefined') {
                 alert('X1 Wallet not installed');
@@ -278,10 +315,32 @@ async function connectWallet(walletType) {
             walletAddress = accounts[0];
         }
         
-        currentWalletAddress = walletAddress;
+        // Send to backend
+        const response = await fetch(window.API_ENDPOINTS.authWallet, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                wallet_address: walletAddress,
+                username: pendingUsername
+            })
+        });
         
-        // Try to login with existing wallet
-        await tryLogin('temp_check');
+        const data = await response.json();
+        
+        if (data.success) {
+            currentUser = data.user;
+            localStorage.setItem('404x1_user', JSON.stringify(currentUser));
+            
+            alert(`Welcome ${currentUser.username}! 🎉`);
+            updateUIForLoggedInUser();
+            
+        } else if (data.error && data.error.includes('Username already taken')) {
+            alert('Username already taken. Please choose another.');
+            showUsernameModal();
+            
+        } else {
+            alert('Login failed: ' + (data.error || 'Unknown error'));
+        }
         
     } catch (error) {
         console.error('Wallet connection error:', error);
@@ -289,75 +348,10 @@ async function connectWallet(walletType) {
     }
 }
 
-// Try to login
-async function tryLogin(username) {
-    try {
-        const response = await fetch(window.API_ENDPOINTS.authWallet, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                wallet_address: currentWalletAddress,
-                username: username
-            })
-        });
-        
-        const data = await response.json();
-        
-        if (data.success) {
-            // Success! Wallet exists or username accepted
-            currentUser = data.user;
-            localStorage.setItem('404x1_user', JSON.stringify(currentUser));
-            
-            alert(`Welcome ${currentUser.username}!`);
-            updateUIForLoggedInUser();
-            
-        } else if (data.error && data.error.includes('Username already taken')) {
-            // Show error and ask for different username
-            const errorDiv = document.getElementById('username-error');
-            if (errorDiv) {
-                errorDiv.textContent = 'Username taken. Please choose another.';
-            } else {
-                alert(data.error);
-            }
-        } else {
-            // New wallet - ask for username
-            showUsernameModal();
-        }
-        
-    } catch (error) {
-        console.error('Login error:', error);
-        alert('Login failed. Please try again.');
-    }
-}
-
-// Submit username
-async function submitUsername() {
-    const input = document.getElementById('username-input');
-    const username = input.value.trim();
-    const errorDiv = document.getElementById('username-error');
-    
-    // Validate
-    if (username.length < 4 || username.length > 12) {
-        errorDiv.textContent = 'Username must be 4-12 characters';
-        return;
-    }
-    
-    if (!/^[a-zA-Z0-9_]+$/.test(username)) {
-        errorDiv.textContent = 'Only letters, numbers, and underscore allowed';
-        return;
-    }
-    
-    errorDiv.textContent = '';
-    
-    // Try to create account
-    closeModal();
-    await tryLogin(username);
-}
-
 // Logout
 function logout() {
     currentUser = null;
-    currentWalletAddress = null;
+    pendingUsername = null;
     localStorage.removeItem('404x1_user');
     updateUIForLoggedOutUser();
 }
@@ -384,7 +378,7 @@ function updateUIForLoggedInUser() {
         if (userInfo) {
             userInfo.style.display = 'flex';
             userInfo.innerHTML = `
-                <span style="color: #00ff00;">${currentUser.username}</span>
+                <span style="color: #00ff00; font-weight: bold;">${currentUser.username}</span>
                 <span style="color: #fff; margin-left: 10px;">${currentUser.reputation_points} RP</span>
                 <button onclick="logout()" style="
                     background: rgba(255, 0, 0, 0.2);
@@ -394,6 +388,7 @@ function updateUIForLoggedInUser() {
                     border-radius: 5px;
                     cursor: pointer;
                     margin-left: 15px;
+                    font-size: 12px;
                 ">LOGOUT</button>
             `;
         }
@@ -402,8 +397,13 @@ function updateUIForLoggedInUser() {
     // Enable chat if on chat page
     const messageInput = document.getElementById('message-input');
     const sendBtn = document.getElementById('send-btn');
-    if (messageInput) messageInput.disabled = false;
-    if (sendBtn) sendBtn.disabled = false;
+    if (messageInput) {
+        messageInput.disabled = false;
+        messageInput.placeholder = 'Type your message...';
+    }
+    if (sendBtn) {
+        sendBtn.disabled = false;
+    }
 }
 
 function updateUIForLoggedOutUser() {
@@ -420,8 +420,13 @@ function updateUIForLoggedOutUser() {
     
     const messageInput = document.getElementById('message-input');
     const sendBtn = document.getElementById('send-btn');
-    if (messageInput) messageInput.disabled = true;
-    if (sendBtn) sendBtn.disabled = true;
+    if (messageInput) {
+        messageInput.disabled = true;
+        messageInput.placeholder = 'Please login to chat';
+    }
+    if (sendBtn) {
+        sendBtn.disabled = true;
+    }
 }
 
 // Load session
@@ -440,7 +445,7 @@ function setupLoginButtons() {
         btn.removeAttribute('onclick');
         btn.addEventListener('click', (e) => {
             e.preventDefault();
-            showWalletModal();
+            showUsernameModal(); // Start with username input
         });
     });
 }
@@ -458,7 +463,8 @@ if (document.readyState !== 'loading') {
 
 // Global functions
 window.connectWallet = connectWallet;
-window.submitUsername = submitUsername;
+window.proceedToWalletSelection = proceedToWalletSelection;
+window.goBackToUsername = goBackToUsername;
 window.closeModal = closeModal;
 window.logout = logout;
-window.showWalletModal = showWalletModal;
+window.showUsernameModal = showUsernameModal;
