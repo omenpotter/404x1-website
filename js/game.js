@@ -1,7 +1,5 @@
 // game.js - Game Integration
-// Add this to your game.html page
-
-const API_BASE = 'https://preview-sandbox--b9ecea76254fe996d19766a671cb1856.base44.app';
+// Uses window.API_BASE from auth.js (loaded first)
 
 // Get current user from localStorage
 function getCurrentUser() {
@@ -19,7 +17,7 @@ async function submitScore(score) {
     }
 
     try {
-        const response = await fetch(`${API_BASE}/api/gameSubmit`, {
+        const response = await fetch(`${window.API_BASE}/api/gameSubmit`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
@@ -53,7 +51,7 @@ async function loadUserStats() {
     if (!user) return;
 
     try {
-        const response = await fetch(`${API_BASE}/api/gameStats?user_id=${user.id}`);
+        const response = await fetch(`${window.API_BASE}/api/gameStats?user_id=${user.id}`);
         const data = await response.json();
 
         if (data.success) {
