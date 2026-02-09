@@ -1,5 +1,5 @@
-// chat.js - Chat Integration
-// Uses window.API_ENDPOINTS from auth.js (loaded first)
+// chat.js - Chat Integration with Player Entity
+// Uses window.API_ENDPOINTS from auth.js
 
 // Get current user from localStorage
 function getCurrentUser() {
@@ -15,6 +15,7 @@ async function loadMessages() {
 
         if (data.success) {
             displayMessages(data.messages);
+            updateOnlineCount(data.online_count || 0);
         }
     } catch (error) {
         console.error('Failed to load messages:', error);
@@ -28,6 +29,19 @@ function displayMessages(messages) {
 
     container.innerHTML = '';
 
+    if (messages.length === 0) {
+        container.innerHTML = `
+            <div style="
+                text-align: center;
+                padding: 40px;
+                color: #666;
+            ">
+                <p>No messages yet. Be the first to chat! 💬</p>
+            </div>
+        `;
+        return;
+    }
+
     messages.forEach(msg => {
         const messageDiv = document.createElement('div');
         messageDiv.className = 'message';
@@ -36,7 +50,7 @@ function displayMessages(messages) {
         
         messageDiv.innerHTML = `
             <div class="message-header">
-                <span class="username">${msg.username}</span>
+                <span class="username">${escapeHtml(msg.username)}</span>
                 <span class="time">${time}</span>
             </div>
             <div class="message-text">${escapeHtml(msg.message)}</div>
@@ -49,6 +63,14 @@ function displayMessages(messages) {
     container.scrollTop = container.scrollHeight;
 }
 
+// Update online count
+function updateOnlineCount(count) {
+    const onlineUsersElement = document.getElementById('onlineUsers');
+    if (onlineUsersElement) {
+        onlineUsersElement.textContent = count || 0;
+    }
+}
+
 // Send message
 async function sendMessage() {
     const user = getCurrentUser();
@@ -58,6 +80,7 @@ async function sendMessage() {
     }
 
     const input = document.getElementById('message-input');
+    const sendBtn = document.getElementById('send-btn');
     const messageText = input.value.trim();
 
     if (!messageText) return;
@@ -67,6 +90,10 @@ async function sendMessage() {
         return;
     }
 
+    // Disable while sending
+    sendBtn.disabled = true;
+    sendBtn.textContent = 'SENDING...';
+
     try {
         const response = await fetch(window.API_ENDPOINTS.chatSend, {
             method: 'POST',
@@ -74,7 +101,8 @@ async function sendMessage() {
                 'Content-Type': 'application/json'
             },
             body: JSON.stringify({
-                user_id: user.id,
+                user_id: user.id, // Backend may still use user_id
+                username: user.username, // Include username too
                 message: messageText
             })
         });
@@ -83,13 +111,17 @@ async function sendMessage() {
 
         if (data.success) {
             input.value = '';
-            loadMessages();
+            await loadMessages();
         } else {
             alert('Failed to send message: ' + (data.error || 'Unknown error'));
         }
     } catch (error) {
         console.error('Send error:', error);
         alert('Failed to send message');
+    } finally {
+        // Re-enable button
+        sendBtn.disabled = false;
+        sendBtn.textContent = 'SEND';
     }
 }
 
@@ -98,6 +130,33 @@ function escapeHtml(text) {
     const div = document.createElement('div');
     div.textContent = text;
     return div.innerHTML;
+}
+
+// Update UI based on login state
+function updateChatUI() {
+    const user = getCurrentUser();
+    const messageInput = document.getElementById('message-input');
+    const sendBtn = document.getElementById('send-btn');
+    
+    if (user) {
+        // Logged in - enable chat
+        if (messageInput) {
+            messageInput.disabled = false;
+            messageInput.placeholder = 'Type your message...';
+        }
+        if (sendBtn) {
+            sendBtn.disabled = false;
+        }
+    } else {
+        // Not logged in - disable chat
+        if (messageInput) {
+            messageInput.disabled = true;
+            messageInput.placeholder = 'Please login to chat';
+        }
+        if (sendBtn) {
+            sendBtn.disabled = true;
+        }
+    }
 }
 
 // Event listeners
@@ -118,6 +177,10 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    // Update UI based on login state
+    updateChatUI();
+
+    // Load messages and start auto-refresh
     loadMessages();
-    setInterval(loadMessages, 3000);
+    setInterval(loadMessages, 3000); // Refresh every 3 seconds
 });
