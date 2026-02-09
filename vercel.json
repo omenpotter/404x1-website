@@ -5,9 +5,15 @@
       "headers": [
         {
           "key": "Content-Security-Policy",
-          "value": "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https:; connect-src 'self' https://rpc.mainnet.x1.xyz https://cdn.jsdelivr.net https://preview-sandbox--b9ecea76254fe996d19766a671cb1856.base44.app; frame-src 'self' blob: data:; worker-src 'self' blob:;"
+          "value": "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https:; connect-src 'self' https://rpc.mainnet.x1.xyz https://cdn.jsdelivr.net https://b9ecea76254fe996d19766a671cb1856.base44.app; frame-src 'self' blob: data:; worker-src 'self' blob:;"
         }
       ]
     }
   ]
 }
+```
+
+**What changed:**
+```
+OLD: https://preview-sandbox--b9ecea76254fe996d19766a671cb1856.base44.app
+NEW: https://b9ecea76254fe996d19766a671cb1856.base44.app
