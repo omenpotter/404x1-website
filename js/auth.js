@@ -1,8 +1,16 @@
 // auth.js - Wallet Authentication
-// This file defines API_BASE globally for all other scripts
+// Uses direct Base44 function URLs (bypasses /api/ routing issues)
 
-// Define API_BASE on window object so other scripts can access it
-window.API_BASE = 'https://b9ecea76254fe996d19766a671cb1856.base44.app';
+// Direct function URLs from Base44 dashboard
+window.API_ENDPOINTS = {
+    authWallet: 'https://code-quest-zone.base44.app/api/apps/6988b1920d2dc3e06784fc73/functions/authWallet',
+    chatSend: 'https://code-quest-zone.base44.app/api/apps/6988b1920d2dc3e06784fc73/functions/chatSend',
+    chatHistory: 'https://code-quest-zone.base44.app/api/apps/6988b1920d2dc3e06784fc73/functions/chatHistory',
+    chatAwardRp: 'https://code-quest-zone.base44.app/api/apps/6988b1920d2dc3e06784fc73/functions/chatAwardRp',
+    gameSubmit: 'https://code-quest-zone.base44.app/api/apps/6988b1920d2dc3e06784fc73/functions/gameSubmit',
+    gameLeaderboard: 'https://code-quest-zone.base44.app/api/apps/6988b1920d2dc3e06784fc73/functions/gameLeaderboard',
+    gameStats: 'https://code-quest-zone.base44.app/api/apps/6988b1920d2dc3e06784fc73/functions/gameStats'
+};
 
 // Global state
 let currentUser = null;
@@ -42,8 +50,8 @@ async function connectWallet() {
             params: [message, walletAddress]
         });
 
-        // Send to backend
-        const response = await fetch(`${window.API_BASE}/api/authWallet`, {
+        // Send to backend using direct function URL
+        const response = await fetch(window.API_ENDPOINTS.authWallet, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
