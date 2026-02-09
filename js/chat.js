@@ -1,5 +1,5 @@
 // chat.js - Chat Integration
-// Uses window.API_BASE from auth.js (loaded first)
+// Uses window.API_ENDPOINTS from auth.js (loaded first)
 
 // Get current user from localStorage
 function getCurrentUser() {
@@ -10,7 +10,7 @@ function getCurrentUser() {
 // Load chat messages
 async function loadMessages() {
     try {
-        const response = await fetch(`${window.API_BASE}/api/chatHistory?limit=100&offset=0`);
+        const response = await fetch(`${window.API_ENDPOINTS.chatHistory}?limit=100&offset=0`);
         const data = await response.json();
 
         if (data.success) {
@@ -68,7 +68,7 @@ async function sendMessage() {
     }
 
     try {
-        const response = await fetch(`${window.API_BASE}/api/chatSend`, {
+        const response = await fetch(window.API_ENDPOINTS.chatSend, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
