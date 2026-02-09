@@ -1,7 +1,8 @@
 // auth.js - Wallet Authentication
-// Add this to your existing script.js or create new auth.js
+// This file defines API_BASE globally for all other scripts
 
-const API_BASE = 'https://preview-sandbox--b9ecea76254fe996d19766a671cb1856.base44.app';
+// Define API_BASE on window object so other scripts can access it
+window.API_BASE = 'https://preview-sandbox--b9ecea76254fe996d19766a671cb1856.base44.app';
 
 // Global state
 let currentUser = null;
@@ -42,7 +43,7 @@ async function connectWallet() {
         });
 
         // Send to backend
-        const response = await fetch(`${API_BASE}/api/authWallet`, {
+        const response = await fetch(`${window.API_BASE}/api/authWallet`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
@@ -87,8 +88,11 @@ function updateUIForLoggedInUser() {
     // Show username and logout button
     const loginBtn = document.getElementById('login-btn');
     const userInfo = document.getElementById('user-info');
+    const authBtn = document.getElementById('authBtn');
     
     if (loginBtn) loginBtn.style.display = 'none';
+    if (authBtn) authBtn.style.display = 'none';
+    
     if (userInfo) {
         userInfo.style.display = 'block';
         userInfo.innerHTML = `
@@ -101,8 +105,10 @@ function updateUIForLoggedInUser() {
 function updateUIForLoggedOutUser() {
     const loginBtn = document.getElementById('login-btn');
     const userInfo = document.getElementById('user-info');
+    const authBtn = document.getElementById('authBtn');
     
     if (loginBtn) loginBtn.style.display = 'block';
+    if (authBtn) authBtn.style.display = 'block';
     if (userInfo) userInfo.style.display = 'none';
 }
 
