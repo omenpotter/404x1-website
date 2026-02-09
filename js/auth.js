@@ -2,7 +2,7 @@
 // This file defines API_BASE globally for all other scripts
 
 // Define API_BASE on window object so other scripts can access it
-window.API_BASE = 'https://preview-sandbox--b9ecea76254fe996d19766a671cb1856.base44.app';
+window.API_BASE = 'https://b9ecea76254fe996d19766a671cb1856.base44.app';
 
 // Global state
 let currentUser = null;
