@@ -1,9 +1,9 @@
 // leaderboard.js - Leaderboard Integration
-// Uses window.API_BASE from auth.js (loaded first)
+// Uses window.API_ENDPOINTS from auth.js (loaded first)
 
 async function loadLeaderboard(sortBy = 'reputation_points', limit = 100) {
     try {
-        const response = await fetch(`${window.API_BASE}/api/gameLeaderboard?limit=${limit}&sortBy=${sortBy}`);
+        const response = await fetch(`${window.API_ENDPOINTS.gameLeaderboard}?limit=${limit}&sortBy=${sortBy}`);
         const data = await response.json();
 
         if (data.success) {
