@@ -1,87 +1,55 @@
-// Leaderboard tab functionality
-const categoryTabs = document.querySelectorAll('.category-tab');
-const leaderboardContents = document.querySelectorAll('.leaderboard-content');
+// leaderboard.js - Leaderboard Integration
 
-categoryTabs.forEach(tab => {
-    tab.addEventListener('click', () => {
-        const category = tab.getAttribute('data-category');
-        
-        // Update active tab
-        categoryTabs.forEach(t => t.classList.remove('active'));
-        tab.classList.add('active');
-        
-        // Show corresponding content
-        leaderboardContents.forEach(content => {
-            content.classList.remove('active');
-        });
-        
-        const targetContent = document.getElementById(`${category}Leaderboard`) || 
-                             document.getElementById('rewardsSection');
-        if (targetContent) {
-            targetContent.classList.add('active');
+const API_BASE = 'https://preview-sandbox--b9ecea76254fe996d19766a671cb1856.base44.app';
+
+async function loadLeaderboard(sortBy = 'reputation_points', limit = 100) {
+    try {
+        const response = await fetch(`${API_BASE}/api/gameLeaderboard?limit=${limit}&sortBy=${sortBy}`);
+        const data = await response.json();
+
+        if (data.success) {
+            displayLeaderboard(data.leaderboard);
         }
-    });
-});
-
-// Load user progress from localStorage
-function loadUserProgress() {
-    const userData = localStorage.getItem('404x1_auth');
-    if (userData) {
-        const user = JSON.parse(userData);
-        
-        // Update milestones based on user RP
-        updateMilestones(user.rp || 0);
-        
-        // You can add more user-specific progress updates here
+    } catch (error) {
+        console.error('Failed to load leaderboard:', error);
     }
 }
 
-function updateMilestones(userRP) {
-    const milestones = [100, 500, 10000, 50000];
-    const milestoneItems = document.querySelectorAll('.milestone-item');
-    
-    milestoneItems.forEach((item, index) => {
-        const badge = item.querySelector('.milestone-badge');
-        if (userRP >= milestones[index]) {
-            badge.classList.remove('locked');
+function displayLeaderboard(leaderboard) {
+    const tbody = document.querySelector('#leaderboard-table tbody');
+    if (!tbody) return;
+
+    tbody.innerHTML = '';
+
+    leaderboard.forEach(player => {
+        const tr = document.createElement('tr');
+        
+        const currentUser = getCurrentUser();
+        if (currentUser && player.username === currentUser.username) {
+            tr.classList.add('current-user');
         }
+        
+        tr.innerHTML = `
+            <td class="rank">#${player.rank}</td>
+            <td class="username">${player.username}</td>
+            <td class="rp">${player.reputation_points.toLocaleString()} RP</td>
+            <td class="score">${player.total_score.toLocaleString()}</td>
+            <td class="games">${player.games_played}</td>
+            <td class="role">
+                <span class="role-badge ${player.user_role}">${player.user_role}</span>
+            </td>
+        `;
+        
+        tbody.appendChild(tr);
     });
 }
 
-// Animate table rows on scroll
-const observerOptions = {
-    threshold: 0.1,
-    rootMargin: '0px 0px -50px 0px'
-};
+function getCurrentUser() {
+    const saved = localStorage.getItem('404x1_user');
+    return saved ? JSON.parse(saved) : null;
+}
 
-const tableRowObserver = new IntersectionObserver((entries) => {
-    entries.forEach((entry, index) => {
-        if (entry.isIntersecting) {
-            setTimeout(() => {
-                entry.target.style.opacity = '1';
-                entry.target.style.transform = 'translateX(0)';
-            }, index * 100);
-            tableRowObserver.unobserve(entry.target);
-        }
-    });
-}, observerOptions);
-
-// Apply animation to table rows
-document.querySelectorAll('.table-row').forEach(row => {
-    row.style.opacity = '0';
-    row.style.transform = 'translateX(-20px)';
-    row.style.transition = 'all 0.5s ease';
-    tableRowObserver.observe(row);
+document.addEventListener('DOMContentLoaded', () => {
+    loadLeaderboard();
+    setInterval(() => loadLeaderboard(), 10000);
 });
-
-// Initialize
-loadUserProgress();
-
-// Update leaderboard data periodically (connect to backend)
-function updateLeaderboardData() {
-    // This would fetch real data from your backend
-    console.log('Leaderboard data update placeholder');
-}
-
-// Update every 30 seconds
-setInterval(updateLeaderboardData, 30000);
