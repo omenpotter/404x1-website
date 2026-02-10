@@ -1,32 +1,59 @@
-// chat-fixed-complete.js - Complete Chat with All Fixes
-// Fixes: Message order, RP tracking, username display, emoji support
+// chat-with-reactions.js - COMPLETE CHAT WITH EMOJI REACTIONS
+// Replace your current js/chat.js with this file
 
-// Get current user from localStorage
+// API endpoints (should already be defined by auth.js)
+window.API_ENDPOINTS = window.API_ENDPOINTS || {
+    chatSend: 'https://code-quest-zone.base44.app/api/apps/6988b1920d2dc3e06784fc73/functions/chatSend',
+    chatHistory: 'https://code-quest-zone.base44.app/api/apps/6988b1920d2dc3e06784fc73/functions/chatHistory',
+    chatReact: 'https://code-quest-zone.base44.app/api/apps/6988b1920d2dc3e06784fc73/functions/chatReact',
+    gameStats: 'https://code-quest-zone.base44.app/api/apps/6988b1920d2dc3e06784fc73/functions/gameStats'
+};
+
+// Quick reaction emojis (shown on hover)
+const QUICK_EMOJIS = ['👍', '❤️', '😂', '🎉', '🔥', '👏'];
+
+// All emojis for picker
+const ALL_EMOJIS = [
+    // Smileys
+    '😀', '😃', '😄', '😁', '😆', '😅', '🤣', '😂', '🙂', '🙃',
+    '😉', '😊', '😇', '🥰', '😍', '🤩', '😘', '😗', '😚', '😙',
+    '😋', '😛', '😜', '🤪', '😝', '🤑', '🤗', '🤭', '🤫', '🤔',
+    '🤐', '🤨', '😐', '😑', '😶', '😏', '😒', '🙄', '😬', '🤥',
+    '😌', '😔', '😪', '🤤', '😴', '😷', '🤒', '🤕', '🤢', '🤮',
+    '🤧', '🥵', '🥶', '🥴', '😵', '🤯', '🤠', '🥳', '😎', '🤓',
+    '😈', '👿', '👹', '👺', '💀', '☠️', '👻', '👽', '👾', '🤖',
+    // Hands
+    '👍', '👎', '👏', '🙌', '👐', '🤝', '🙏', '✊', '👊', '🤛',
+    '🤜', '🤞', '✌️', '🤟', '🤘', '👌', '🤏', '👈', '👉', '👆',
+    '👇', '☝️', '✋', '🤚', '🖐️', '🖖', '👋', '🤙', '💪', '🦾',
+    // Hearts & Symbols
+    '❤️', '🧡', '💛', '💚', '💙', '💜', '🖤', '🤍', '🤎', '💔',
+    '❤️‍🔥', '💕', '💞', '💓', '💗', '💖', '💘', '💝', '💟', '☮️',
+    '✨', '💯', '🔥', '⚡', '💥', '💫', '⭐', '🌟', '✅', '❌'
+];
+
 function getCurrentUser() {
     const saved = localStorage.getItem('404x1_user');
     return saved ? JSON.parse(saved) : null;
 }
 
-// Update profile display with user info
+// Update profile display
 function updateProfileDisplay() {
     const user = getCurrentUser();
+    if (!user) return;
     
-    if (user) {
-        // Update username
-        const usernameElement = document.getElementById('username');
-        if (usernameElement) {
-            usernameElement.textContent = user.username;
-        }
-        
-        // Update RP
-        const rpValueElement = document.querySelector('.rp-value');
-        if (rpValueElement) {
-            rpValueElement.textContent = user.reputation_points || 0;
-        }
+    const usernameElement = document.getElementById('username');
+    if (usernameElement) {
+        usernameElement.textContent = user.username;
+    }
+    
+    const rpValueElement = document.querySelector('.rp-value');
+    if (rpValueElement) {
+        rpValueElement.textContent = user.reputation_points || 0;
     }
 }
 
-// Get user stats from backend
+// Load user stats from backend
 async function loadUserStats() {
     const user = getCurrentUser();
     if (!user) return;
@@ -40,10 +67,16 @@ async function loadUserStats() {
             user.reputation_points = data.stats.reputation_points;
             localStorage.setItem('404x1_user', JSON.stringify(user));
             
-            // Update displays
+            // Update display
             const rpValueElement = document.querySelector('.rp-value');
             if (rpValueElement) {
                 rpValueElement.textContent = data.stats.reputation_points || 0;
+            }
+            
+            // Update message count
+            const messageCountElement = document.getElementById('messageCount');
+            if (messageCountElement) {
+                messageCountElement.textContent = data.stats.messages_sent || 0;
             }
         }
     } catch (error) {
@@ -51,33 +84,22 @@ async function loadUserStats() {
     }
 }
 
-// Load chat messages
+// Load messages with reactions
 async function loadMessages() {
     try {
         const response = await fetch(`${window.API_ENDPOINTS.chatHistory}?limit=100&offset=0`);
         const data = await response.json();
 
         if (data.success) {
-            displayMessages(data.messages);
-            updateOnlineCount(data.online_count || 0);
-            
-            // Update message count for current user
-            const user = getCurrentUser();
-            if (user) {
-                const userMessages = data.messages.filter(m => m.username === user.username);
-                const messageCountElement = document.getElementById('messageCount');
-                if (messageCountElement) {
-                    messageCountElement.textContent = userMessages.length;
-                }
-            }
+            displayMessages(data.messages, data.reactions || []);
         }
     } catch (error) {
         console.error('Failed to load messages:', error);
     }
 }
 
-// Display messages in UI (NEWEST AT BOTTOM)
-function displayMessages(messages) {
+// Display messages with reactions
+function displayMessages(messages, reactions) {
     const container = document.getElementById('messages-container');
     if (!container) return;
 
@@ -85,11 +107,7 @@ function displayMessages(messages) {
 
     if (messages.length === 0) {
         container.innerHTML = `
-            <div style="
-                text-align: center;
-                padding: 40px;
-                color: #666;
-            ">
+            <div style="text-align: center; padding: 40px; color: #666;">
                 <p>No messages yet. Be the first to chat! 💬</p>
             </div>
         `;
@@ -97,36 +115,89 @@ function displayMessages(messages) {
     }
 
     const currentUser = getCurrentUser();
+    
+    // Group reactions by message_id
+    const reactionsByMessage = {};
+    if (reactions && Array.isArray(reactions)) {
+        reactions.forEach(r => {
+            if (!reactionsByMessage[r.message_id]) {
+                reactionsByMessage[r.message_id] = [];
+            }
+            reactionsByMessage[r.message_id].push(r);
+        });
+    }
 
-    // Sort messages: OLDEST to NEWEST (so newest appears at bottom)
-    const sortedMessages = [...messages].sort((a, b) => {
-        return new Date(a.created_date) - new Date(b.created_date);
-    });
+    // Sort messages: oldest to newest (newest at bottom)
+    const sortedMessages = [...messages].sort((a, b) => 
+        new Date(a.created_date) - new Date(b.created_date)
+    );
 
-    sortedMessages.forEach((msg, index) => {
+    sortedMessages.forEach(msg => {
+        // Skip deleted messages
+        if (msg.is_deleted) return;
+        
         const messageDiv = document.createElement('div');
         const isOwnMessage = currentUser && msg.username === currentUser.username;
         messageDiv.className = `message ${isOwnMessage ? 'own-message' : ''}`;
+        messageDiv.setAttribute('data-message-id', msg.id);
         
         const time = new Date(msg.created_date).toLocaleTimeString('en-US', {
             hour: '2-digit',
             minute: '2-digit'
         });
         
+        // Build reactions display
+        const msgReactions = reactionsByMessage[msg.id] || [];
+        const reactionCounts = {};
+        const userReactions = new Set();
+        
+        msgReactions.forEach(r => {
+            reactionCounts[r.emoji] = (reactionCounts[r.emoji] || 0) + 1;
+            if (currentUser && r.from_player_id === currentUser.id) {
+                userReactions.add(r.emoji);
+            }
+        });
+        
+        let reactionsHTML = '';
+        if (Object.keys(reactionCounts).length > 0) {
+            reactionsHTML = '<div class="message-reactions">';
+            for (const [emoji, count] of Object.entries(reactionCounts)) {
+                const isActive = userReactions.has(emoji);
+                reactionsHTML += `
+                    <span class="reaction-bubble ${isActive ? 'active' : ''}" 
+                          onclick="toggleReaction('${msg.id}', '${emoji}')"
+                          title="${isActive ? 'Remove reaction' : 'React'}">
+                        ${emoji} <span class="reaction-count">${count}</span>
+                    </span>
+                `;
+            }
+            reactionsHTML += '</div>';
+        }
+        
+        // Message content
         messageDiv.innerHTML = `
             <div class="message-header">
                 <span class="username ${isOwnMessage ? 'own-username' : ''}">${escapeHtml(msg.username)}</span>
                 <span class="time">${time}</span>
             </div>
             <div class="message-text">${escapeHtml(msg.message)}</div>
-            <div class="message-actions">
-                <button class="emoji-react-btn" onclick="showEmojiReactions('${msg.id}')" title="React">
-                    <span>😊</span>
-                </button>
-                <button class="reply-btn" onclick="replyToMessage('${msg.id}', '${escapeHtml(msg.username)}')" title="Reply">
-                    ↩️
-                </button>
-            </div>
+            ${reactionsHTML}
+            ${!isOwnMessage ? `
+                <div class="message-actions">
+                    ${QUICK_EMOJIS.map(emoji => `
+                        <button class="quick-react-btn" 
+                                onclick="reactToMessage('${msg.id}', '${emoji}')" 
+                                title="React with ${emoji}">
+                            ${emoji}
+                        </button>
+                    `).join('')}
+                    <button class="reply-btn" 
+                            onclick="replyToMessage('${msg.id}', '${escapeHtml(msg.username)}')" 
+                            title="Reply">
+                        ↩️
+                    </button>
+                </div>
+            ` : ''}
         `;
         
         container.appendChild(messageDiv);
@@ -136,12 +207,47 @@ function displayMessages(messages) {
     container.scrollTop = container.scrollHeight;
 }
 
-// Emoji reactions
-const QUICK_EMOJIS = ['👍', '❤️', '😂', '🎉', '🔥', '👏', '😢', '😮'];
+// React to message
+async function reactToMessage(messageId, emoji) {
+    const user = getCurrentUser();
+    if (!user) {
+        alert('Please login to react');
+        return;
+    }
+    
+    try {
+        const response = await fetch(window.API_ENDPOINTS.chatReact, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                user_id: user.id,
+                message_id: messageId,
+                emoji: emoji
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            // Reload messages to show updated reactions
+            await loadMessages();
+            // Refresh RP count
+            await loadUserStats();
+        } else {
+            if (data.error && !data.error.includes('own message')) {
+                alert(data.error);
+            }
+        }
+    } catch (error) {
+        console.error('React error:', error);
+        // If backend not ready, show placeholder
+        alert('Emoji reactions will be enabled soon! 😊');
+    }
+}
 
-function showEmojiReactions(messageId) {
-    alert('Emoji reactions coming soon! For now, use emoji in your messages. 😊');
-    // TODO: Implement emoji reactions storage
+// Toggle reaction (remove if already reacted with same emoji)
+async function toggleReaction(messageId, emoji) {
+    await reactToMessage(messageId, emoji);
 }
 
 // Reply to message
@@ -173,6 +279,7 @@ function replyToMessage(messageId, username) {
             border-radius: 4px;
             cursor: pointer;
             font-size: 12px;
+            z-index: 10;
         `;
         cancelBtn.onclick = cancelReply;
         inputContainer.style.position = 'relative';
@@ -192,7 +299,73 @@ function cancelReply() {
     }
 }
 
-// Insert emoji at cursor
+// Emoji picker for message input
+function showEmojiPicker() {
+    // Close if already open
+    if (document.getElementById('emoji-picker')) {
+        hideEmojiPicker();
+        return;
+    }
+    
+    const picker = document.createElement('div');
+    picker.id = 'emoji-picker';
+    picker.style.cssText = `
+        position: fixed;
+        bottom: 80px;
+        right: 30px;
+        background: #1a1a1a;
+        border: 2px solid #00ff00;
+        border-radius: 10px;
+        padding: 15px;
+        display: grid;
+        grid-template-columns: repeat(10, 1fr);
+        gap: 5px;
+        max-width: 500px;
+        max-height: 400px;
+        overflow-y: auto;
+        z-index: 1000;
+        box-shadow: 0 4px 20px rgba(0, 255, 0, 0.3);
+    `;
+    
+    ALL_EMOJIS.forEach(emoji => {
+        const btn = document.createElement('button');
+        btn.textContent = emoji;
+        btn.className = 'emoji-picker-btn';
+        btn.style.cssText = `
+            background: transparent;
+            border: none;
+            font-size: 26px;
+            cursor: pointer;
+            padding: 8px;
+            border-radius: 6px;
+            transition: all 0.2s;
+            line-height: 1;
+        `;
+        btn.onmouseover = () => btn.style.background = 'rgba(0, 255, 0, 0.2)';
+        btn.onmouseout = () => btn.style.background = 'transparent';
+        btn.onclick = () => insertEmoji(emoji);
+        picker.appendChild(btn);
+    });
+    
+    document.body.appendChild(picker);
+    
+    // Close on click outside
+    setTimeout(() => {
+        document.addEventListener('click', function closeOnOutside(e) {
+            const emojiBtn = document.getElementById('emoji-btn');
+            if (picker && !picker.contains(e.target) && e.target !== emojiBtn) {
+                hideEmojiPicker();
+                document.removeEventListener('click', closeOnOutside);
+            }
+        });
+    }, 100);
+}
+
+function hideEmojiPicker() {
+    const picker = document.getElementById('emoji-picker');
+    if (picker) picker.remove();
+}
+
 function insertEmoji(emoji) {
     const input = document.getElementById('message-input');
     if (!input) return;
@@ -208,87 +381,6 @@ function insertEmoji(emoji) {
     hideEmojiPicker();
 }
 
-// Show emoji picker
-function showEmojiPicker() {
-    if (document.getElementById('emoji-picker')) {
-        hideEmojiPicker();
-        return;
-    }
-    
-    const allEmojis = [
-        '😀', '😃', '😄', '😁', '😆', '😅', '🤣', '😂', '🙂', '🙃',
-        '😉', '😊', '😇', '🥰', '😍', '🤩', '😘', '😗', '😚', '😙',
-        '😋', '😛', '😜', '🤪', '😝', '🤑', '🤗', '🤭', '🤫', '🤔',
-        '👍', '👎', '👏', '🙌', '👐', '🤝', '🙏', '✨', '💯', '🔥',
-        '💪', '👀', '🎉', '🎊', '🎈', '🎁', '🏆', '🥇', '🥈', '🥉',
-        '❤️', '🧡', '💛', '💚', '💙', '💜', '🖤', '🤍', '🤎', '💔',
-        '❤️‍🔥', '💕', '💞', '💓', '💗', '💖', '💘', '💝', '💟', '☮️'
-    ];
-    
-    const picker = document.createElement('div');
-    picker.id = 'emoji-picker';
-    picker.style.cssText = `
-        position: absolute;
-        bottom: 60px;
-        right: 20px;
-        background: #1a1a1a;
-        border: 2px solid #00ff00;
-        border-radius: 10px;
-        padding: 15px;
-        display: grid;
-        grid-template-columns: repeat(10, 1fr);
-        gap: 5px;
-        max-width: 400px;
-        max-height: 300px;
-        overflow-y: auto;
-        z-index: 1000;
-        box-shadow: 0 4px 20px rgba(0, 255, 0, 0.3);
-    `;
-    
-    allEmojis.forEach(emoji => {
-        const btn = document.createElement('button');
-        btn.textContent = emoji;
-        btn.style.cssText = `
-            background: transparent;
-            border: none;
-            font-size: 24px;
-            cursor: pointer;
-            padding: 5px;
-            border-radius: 5px;
-            transition: all 0.2s;
-        `;
-        btn.onmouseover = () => btn.style.background = 'rgba(0, 255, 0, 0.2)';
-        btn.onmouseout = () => btn.style.background = 'transparent';
-        btn.onclick = () => insertEmoji(emoji);
-        picker.appendChild(btn);
-    });
-    
-    document.body.appendChild(picker);
-    
-    // Close on click outside
-    setTimeout(() => {
-        document.addEventListener('click', function closeOnOutside(e) {
-            if (!picker.contains(e.target) && e.target.id !== 'emoji-btn') {
-                hideEmojiPicker();
-                document.removeEventListener('click', closeOnOutside);
-            }
-        });
-    }, 100);
-}
-
-function hideEmojiPicker() {
-    const picker = document.getElementById('emoji-picker');
-    if (picker) picker.remove();
-}
-
-// Update online count
-function updateOnlineCount(count) {
-    const onlineUsersElement = document.getElementById('onlineUsers');
-    if (onlineUsersElement) {
-        onlineUsersElement.textContent = count || 0;
-    }
-}
-
 // Send message
 async function sendMessage() {
     const user = getCurrentUser();
@@ -302,32 +394,37 @@ async function sendMessage() {
     let messageText = input.value.trim();
 
     if (!messageText) return;
-
+    
     if (messageText.length > 500) {
         alert('Message too long (max 500 characters)');
         return;
     }
 
-    // Add reply prefix if replying
+    // Handle reply
+    let reply_to_message_id = null;
+    let reply_to_username = null;
+    
     if (replyingTo) {
+        reply_to_message_id = replyingTo.messageId;
+        reply_to_username = replyingTo.username;
         messageText = `@${replyingTo.username} ${messageText}`;
         cancelReply();
     }
 
-    // Disable while sending
+    // Disable button while sending
     sendBtn.disabled = true;
     sendBtn.textContent = 'SENDING...';
 
     try {
         const response = await fetch(window.API_ENDPOINTS.chatSend, {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 user_id: user.id,
                 username: user.username,
-                message: messageText
+                message: messageText,
+                reply_to_message_id,
+                reply_to_username
             })
         });
 
@@ -336,37 +433,62 @@ async function sendMessage() {
         if (data.success) {
             input.value = '';
             await loadMessages();
+            await loadUserStats(); // Update RP
             
-            // Refresh user stats to get updated RP
-            await loadUserStats();
+            // Show RP earned if backend returns it
+            if (data.rp_earned) {
+                showRpNotification(`+${data.rp_earned} RP`);
+            }
         } else {
-            alert('Failed to send message: ' + (data.error || 'Unknown error'));
+            alert('Failed to send: ' + (data.error || 'Unknown error'));
         }
     } catch (error) {
         console.error('Send error:', error);
         alert('Failed to send message');
     } finally {
-        // Re-enable button
         sendBtn.disabled = false;
         sendBtn.textContent = 'SEND';
     }
 }
 
-// Escape HTML to prevent XSS
+// Show RP notification
+function showRpNotification(text) {
+    const notification = document.createElement('div');
+    notification.textContent = text;
+    notification.style.cssText = `
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        background: rgba(0, 255, 0, 0.2);
+        border: 2px solid #00ff00;
+        color: #00ff00;
+        padding: 10px 20px;
+        border-radius: 8px;
+        font-weight: bold;
+        z-index: 10000;
+        animation: slideIn 0.3s ease-out;
+    `;
+    
+    document.body.appendChild(notification);
+    
+    setTimeout(() => {
+        notification.style.animation = 'slideOut 0.3s ease-out';
+        setTimeout(() => notification.remove(), 300);
+    }, 2000);
+}
+
 function escapeHtml(text) {
     const div = document.createElement('div');
     div.textContent = text;
     return div.innerHTML;
 }
 
-// Update UI based on login state
 function updateChatUI() {
     const user = getCurrentUser();
     const messageInput = document.getElementById('message-input');
     const sendBtn = document.getElementById('send-btn');
     
     if (user) {
-        // Logged in - enable chat
         if (messageInput) {
             messageInput.disabled = false;
             messageInput.placeholder = 'Type your message...';
@@ -374,14 +496,9 @@ function updateChatUI() {
         if (sendBtn) {
             sendBtn.disabled = false;
         }
-        
-        // Update profile display
         updateProfileDisplay();
-        
-        // Load user stats
         loadUserStats();
     } else {
-        // Not logged in - disable chat
         if (messageInput) {
             messageInput.disabled = true;
             messageInput.placeholder = 'Please login to chat';
@@ -392,7 +509,6 @@ function updateChatUI() {
     }
 }
 
-// Add emoji button to input
 function addEmojiButton() {
     const chatInput = document.querySelector('.chat-input');
     if (!chatInput || document.getElementById('emoji-btn')) return;
@@ -401,6 +517,7 @@ function addEmojiButton() {
     emojiBtn.id = 'emoji-btn';
     emojiBtn.innerHTML = '😊';
     emojiBtn.title = 'Add emoji';
+    emojiBtn.type = 'button';
     emojiBtn.style.cssText = `
         position: absolute;
         right: 80px;
@@ -413,10 +530,12 @@ function addEmojiButton() {
         padding: 5px;
         border-radius: 5px;
         transition: all 0.2s;
+        z-index: 10;
     `;
     emojiBtn.onmouseover = () => emojiBtn.style.background = 'rgba(0, 255, 0, 0.2)';
     emojiBtn.onmouseout = () => emojiBtn.style.background = 'transparent';
     emojiBtn.onclick = (e) => {
+        e.preventDefault();
         e.stopPropagation();
         showEmojiPicker();
     };
@@ -425,7 +544,7 @@ function addEmojiButton() {
     chatInput.appendChild(emojiBtn);
 }
 
-// Event listeners
+// Initialize
 document.addEventListener('DOMContentLoaded', () => {
     const sendBtn = document.getElementById('send-btn');
     const messageInput = document.getElementById('message-input');
@@ -443,21 +562,16 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // Update UI based on login state
     updateChatUI();
-    
-    // Add emoji button
     addEmojiButton();
-
-    // Load messages and start auto-refresh
     loadMessages();
-    setInterval(loadMessages, 3000);
     
-    // Refresh user stats every 10 seconds
+    // Auto-refresh
+    setInterval(loadMessages, 3000);
     setInterval(loadUserStats, 10000);
 });
 
-// Listen for login events from auth.js
+// Listen for login events
 window.addEventListener('userLoggedIn', () => {
     updateChatUI();
     loadMessages();
@@ -468,9 +582,10 @@ window.addEventListener('userLoggedOut', () => {
     updateChatUI();
 });
 
-// Make functions globally available
+// Export functions
 window.sendMessage = sendMessage;
-window.insertEmoji = insertEmoji;
-window.showEmojiPicker = showEmojiPicker;
+window.reactToMessage = reactToMessage;
+window.toggleReaction = toggleReaction;
 window.replyToMessage = replyToMessage;
-window.showEmojiReactions = showEmojiReactions;
+window.showEmojiPicker = showEmojiPicker;
+window.insertEmoji = insertEmoji;
