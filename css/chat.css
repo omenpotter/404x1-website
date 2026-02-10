@@ -536,3 +536,306 @@
         padding: 0.8rem;
     }
 }
+/* EMOJI REACTIONS CSS - Add to your chat.css or in <style> tag */
+
+/* Message styling */
+.message {
+    position: relative;
+    padding: 12px 16px;
+    margin-bottom: 12px;
+    background: rgba(255, 255, 255, 0.02);
+    border-radius: 8px;
+    transition: all 0.2s;
+}
+
+.message:hover {
+    background: rgba(255, 255, 255, 0.05);
+}
+
+/* Own message */
+.message.own-message {
+    background: rgba(0, 255, 0, 0.05);
+    border-left: 3px solid #00ff00;
+}
+
+.own-username {
+    color: #00ff00 !important;
+    font-weight: bold;
+}
+
+/* Message header */
+.message-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 6px;
+}
+
+.username {
+    font-weight: 600;
+    color: #00ff00;
+    font-size: 14px;
+}
+
+.time {
+    font-size: 11px;
+    color: #666;
+}
+
+/* Message text */
+.message-text {
+    color: #fff;
+    font-size: 15px;
+    line-height: 1.5;
+    word-wrap: break-word;
+}
+
+/* Reaction bubbles */
+.message-reactions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 8px;
+}
+
+.reaction-bubble {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background: rgba(0, 255, 0, 0.1);
+    border: 1px solid rgba(0, 255, 0, 0.3);
+    border-radius: 14px;
+    padding: 4px 10px;
+    font-size: 15px;
+    cursor: pointer;
+    transition: all 0.2s;
+    user-select: none;
+}
+
+.reaction-bubble:hover {
+    background: rgba(0, 255, 0, 0.2);
+    border-color: #00ff00;
+    transform: scale(1.05);
+}
+
+.reaction-bubble.active {
+    background: rgba(0, 255, 0, 0.25);
+    border-color: #00ff00;
+    border-width: 2px;
+    font-weight: bold;
+    box-shadow: 0 0 8px rgba(0, 255, 0, 0.3);
+}
+
+.reaction-count {
+    font-size: 12px;
+    font-weight: 600;
+    color: #00ff00;
+}
+
+/* Quick reaction buttons (shown on hover) */
+.message-actions {
+    display: none;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.message:hover .message-actions {
+    display: flex;
+}
+
+.quick-react-btn,
+.reply-btn {
+    background: rgba(0, 255, 0, 0.1);
+    border: 1px solid rgba(0, 255, 0, 0.3);
+    color: #00ff00;
+    padding: 6px 10px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 16px;
+    transition: all 0.2s;
+    line-height: 1;
+}
+
+.quick-react-btn:hover,
+.reply-btn:hover {
+    background: rgba(0, 255, 0, 0.2);
+    border-color: #00ff00;
+    transform: scale(1.1);
+}
+
+.reply-btn {
+    font-size: 14px;
+    padding: 6px 12px;
+}
+
+/* Emoji picker */
+#emoji-picker {
+    animation: slideUp 0.2s ease-out;
+}
+
+#emoji-picker::-webkit-scrollbar {
+    width: 10px;
+}
+
+#emoji-picker::-webkit-scrollbar-track {
+    background: #0a0a0a;
+    border-radius: 5px;
+}
+
+#emoji-picker::-webkit-scrollbar-thumb {
+    background: #00ff00;
+    border-radius: 5px;
+}
+
+#emoji-picker::-webkit-scrollbar-thumb:hover {
+    background: #00cc00;
+}
+
+.emoji-picker-btn:active {
+    transform: scale(0.9);
+}
+
+/* Emoji button in input */
+#emoji-btn {
+    animation: fadeIn 0.3s ease-out;
+}
+
+/* Cancel reply button */
+#cancel-reply-btn {
+    animation: slideIn 0.2s ease-out;
+}
+
+/* Animations */
+@keyframes slideUp {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes slideIn {
+    from {
+        opacity: 0;
+        transform: translateX(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+@keyframes slideOut {
+    from {
+        opacity: 1;
+        transform: translateX(0);
+    }
+    to {
+        opacity: 0;
+        transform: translateX(10px);
+    }
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
+}
+
+/* RP Notification animation */
+@keyframes slideIn {
+    from {
+        opacity: 0;
+        transform: translateX(100%);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    #emoji-picker {
+        max-width: 350px;
+        grid-template-columns: repeat(8, 1fr);
+        bottom: 70px;
+        right: 10px;
+        left: 10px;
+        margin: 0 auto;
+    }
+    
+    .reaction-bubble {
+        font-size: 14px;
+        padding: 3px 8px;
+    }
+    
+    .quick-react-btn {
+        font-size: 14px;
+        padding: 4px 8px;
+    }
+}
+
+/* Profile sidebar styling (if needed) */
+.rp-display {
+    color: #00ff00;
+    font-weight: bold;
+}
+
+.rp-value {
+    font-size: 24px;
+}
+
+/* Message container */
+#messages-container {
+    scroll-behavior: smooth;
+}
+
+/* Loading state */
+.message.loading {
+    opacity: 0.5;
+    pointer-events: none;
+}
+
+/* Deleted message styling */
+.message.deleted {
+    opacity: 0.4;
+    font-style: italic;
+}
+
+.message.deleted .message-text {
+    color: #666;
+}
+
+/* Hover effects */
+.message-actions button {
+    position: relative;
+    overflow: hidden;
+}
+
+.message-actions button::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 0;
+    height: 0;
+    border-radius: 50%;
+    background: rgba(0, 255, 0, 0.3);
+    transform: translate(-50%, -50%);
+    transition: width 0.3s, height 0.3s;
+}
+
+.message-actions button:hover::before {
+    width: 100%;
+    height: 100%;
+}
