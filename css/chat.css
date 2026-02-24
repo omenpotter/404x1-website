@@ -1,12 +1,19 @@
 /* ============================================
-   TELEGRAM-STYLE CHAT LAYOUT - TIGHT INPUT FIX 2025
+   TELEGRAM-STYLE CHAT LAYOUT - FIXED & ZERO SPACES
    ============================================ */
+html, body {
+    margin: 0;
+    padding: 0;
+    height: 100%;
+    overflow: hidden;
+}
 
 .chat-page {
     height: 100vh;
     padding-top: 70px;
     background: var(--bg-primary);
     overflow: hidden;
+    margin: 0;
 }
 
 .chat-window {
@@ -18,7 +25,9 @@
     margin: 0 auto;
 }
 
-/* ── HEADER ── */
+/* ============================================
+   HEADER (Compact)
+   ============================================ */
 .chat-header {
     flex: 0 0 auto;
     padding: 0.8rem 1.5rem;
@@ -53,8 +62,15 @@
     line-height: 1.2;
 }
 
-#username-mini { color: var(--text-primary); font-weight: 600; }
-.rp-mini        { color: var(--accent-green); font-weight: bold; }
+#username-mini {
+    color: var(--text-primary);
+    font-weight: 600;
+}
+
+.rp-mini {
+    color: var(--accent-green);
+    font-weight: bold;
+}
 
 .chat-status {
     display: flex;
@@ -75,28 +91,52 @@
 }
 
 @keyframes pulse {
-    0%, 100% { opacity: 1; transform: scale(1); }
-    50%      { opacity: 0.6; transform: scale(1.2); }
+    0%, 100% {
+        opacity: 1;
+        transform: scale(1);
+    }
+    50% {
+        opacity: 0.6;
+        transform: scale(1.2);
+    }
 }
 
-/* ── MESSAGES ── */
+/* ============================================
+   MESSAGES CONTAINER (More Space)
+   ============================================ */
 .messages-container {
     flex: 1 1 auto;
     overflow-y: auto;
     overflow-x: hidden;
-    padding: 1rem 1.5rem;
+    padding: 1rem 1.5rem 1rem 1.5rem; /* No extra bottom padding if needed */
     display: flex;
     flex-direction: column;
     gap: 0.8rem;
     scroll-behavior: smooth;
+    margin-bottom: 0;
 }
 
-.messages-container::-webkit-scrollbar { width: 8px; }
-.messages-container::-webkit-scrollbar-track { background: var(--bg-secondary); border-radius: 4px; }
-.messages-container::-webkit-scrollbar-thumb { background: var(--accent-green); border-radius: 4px; }
-.messages-container::-webkit-scrollbar-thumb:hover { background: #00cc00; }
+.messages-container::-webkit-scrollbar {
+    width: 8px;
+}
 
-/* ── MESSAGE BUBBLES ── */
+.messages-container::-webkit-scrollbar-track {
+    background: var(--bg-secondary);
+    border-radius: 4px;
+}
+
+.messages-container::-webkit-scrollbar-thumb {
+    background: var(--accent-green);
+    border-radius: 4px;
+}
+
+.messages-container::-webkit-scrollbar-thumb:hover {
+    background: #00cc00;
+}
+
+/* ============================================
+   MESSAGE BUBBLES (Telegram Style)
+   ============================================ */
 .message {
     max-width: 70%;
     padding: 0.7rem 1rem;
@@ -109,10 +149,17 @@
 }
 
 @keyframes messageSlide {
-    from { opacity: 0; transform: translateY(10px); }
-    to   { opacity: 1; transform: translateY(0); }
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
 }
 
+/* Own Messages (Right Side) */
 .message.own-message {
     align-self: flex-end;
     background: rgba(0, 220, 0, 0.18);
@@ -121,6 +168,7 @@
     color: #e0ffe0;
 }
 
+/* Other Users' Messages (Left Side) */
 .message:not(.own-message) {
     align-self: flex-start;
     background: rgba(40, 40, 50, 0.75);
@@ -129,48 +177,148 @@
     color: #e0e0ff;
 }
 
+/* Message Header (Username + Time) */
 .message-header {
     display: flex;
     justify-content: space-between;
     align-items: baseline;
-    margin-bottom: 0.25rem;
+    margin-bottom: 0.3rem;
     font-size: 0.8rem;
     opacity: 0.85;
 }
 
-.username     { font-weight: 600; color: var(--accent-green); }
-.own-username { color: #0f0 !important; }
-.time         { font-size: 0.7rem; color: #888; margin-left: 0.5rem; }
+.username {
+    font-weight: 600;
+    color: var(--accent-green);
+}
 
+.own-username {
+    color: #0f0 !important;
+}
+
+.time {
+    font-size: 0.7rem;
+    color: #888;
+    margin-left: 0.5rem;
+}
+
+/* Message Text */
 .message-text {
     color: inherit;
     display: block;
+    margin-bottom: 0.3rem;
 }
 
-/* Reactions & quick actions unchanged — keeping your original */
-.message-reactions { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-top: 0.5rem; }
-/* ... paste your .reaction-bubble, .message-actions etc. here if you modified them ... */
+/* ============================================
+   REACTION BUBBLES
+   ============================================ */
+.message-reactions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    margin-top: 0.5rem;
+}
 
-/* ── INPUT AREA ── ZERO UNWANTED SPACE ── */
+.reaction-bubble {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    background: rgba(0, 255, 0, 0.1);
+    border: 1px solid rgba(0, 255, 0, 0.3);
+    border-radius: 12px;
+    padding: 0.25rem 0.6rem;
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: all 0.2s;
+    user-select: none;
+}
+
+.reaction-bubble:hover {
+    background: rgba(0, 255, 0, 0.2);
+    border-color: var(--accent-green);
+    transform: scale(1.05);
+}
+
+.reaction-bubble.active {
+    background: rgba(0, 255, 0, 0.25);
+    border-color: var(--accent-green);
+    border-width: 2px;
+    font-weight: bold;
+    box-shadow: 0 0 8px rgba(0, 255, 0, 0.3);
+}
+
+.reaction-count {
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--accent-green);
+}
+
+/* ============================================
+   QUICK REACTION BUTTONS (On Hover)
+   ============================================ */
+.message-actions {
+    display: none;
+    flex-wrap: wrap;
+    gap: 0.3rem;
+    margin-top: 0.5rem;
+    padding-top: 0.5rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.message:hover .message-actions {
+    display: flex;
+}
+
+.quick-react-btn,
+.reply-btn {
+    background: rgba(0, 255, 0, 0.1);
+    border: 1px solid rgba(0, 255, 0, 0.3);
+    color: var(--accent-green);
+    padding: 0.4rem 0.7rem;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 1rem;
+    transition: all 0.2s;
+    line-height: 1;
+}
+
+.quick-react-btn:hover,
+.reply-btn:hover {
+    background: rgba(0, 255, 0, 0.2);
+    border-color: var(--accent-green);
+    transform: scale(1.1);
+}
+
+.reply-btn {
+    font-size: 0.85rem;
+    padding: 0.4rem 0.8rem;
+}
+
+/* ============================================
+   INPUT CONTAINER (ABSOLUTE MINIMUM - NO SPACES)
+   ============================================ */
 .chat-input-container {
     flex: 0 0 auto;
-    padding: 0.4rem 1rem 0.2rem 1rem;     /* very small top/bottom */
+    padding: 0.5rem 1rem 0 1rem; /* ZERO bottom padding */
     background: rgba(0, 0, 0, 0.5);
     border-top: 2px solid var(--accent-green);
     backdrop-filter: blur(10px);
     display: flex;
     flex-direction: column;
-    gap: 0.08rem;                          /* almost nothing — adjust to 0 if still too much */
+    gap: 0; /* ZERO gap between input and info */
+    margin: 0;
 }
 
 .chat-input-wrapper {
     display: flex;
-    align-items: center;
     gap: 0.5rem;
+    align-items: center;
     margin: 0;
     padding: 0;
+    position: relative;
 }
 
+/* Input Buttons (Emoji Left, Attach Right) */
 .input-btn {
     width: 36px;
     height: 36px;
@@ -198,9 +346,15 @@
     cursor: not-allowed;
 }
 
-.emoji-btn-left { order: 0; }
-.attach-btn     { order: 2; }
+.emoji-btn-left {
+    order: 0;
+}
 
+.attach-btn {
+    order: 2;
+}
+
+/* Message Input */
 .chat-input {
     flex: 1;
     order: 1;
@@ -211,8 +365,9 @@
     font-family: 'Share Tech Mono', monospace;
     font-size: 0.9rem;
     border-radius: 6px;
+    transition: all 0.3s ease;
+    line-height: 1.3;
     height: 36px;
-    box-sizing: border-box;
     margin: 0;
 }
 
@@ -228,9 +383,10 @@
     cursor: not-allowed;
 }
 
+/* Send Button */
 .send-btn {
     order: 3;
-    padding: 0 1.2rem;
+    padding: 0.5rem 1.2rem;
     background: var(--accent-green);
     border: none;
     color: var(--bg-primary);
@@ -239,8 +395,10 @@
     letter-spacing: 1px;
     cursor: pointer;
     border-radius: 6px;
-    height: 36px;
+    transition: all 0.3s ease;
+    text-shadow: none;
     flex-shrink: 0;
+    height: 36px;
 }
 
 .send-btn:hover:not(:disabled) {
@@ -253,16 +411,16 @@
     cursor: not-allowed;
 }
 
-/* RP line — glued as close as possible */
+/* Input Info - GLUED TO INPUT, ZERO SPACE */
 .input-info {
-    margin: 0;
-    padding: 0;
-    font-size: 0.65rem;               /* smaller → less visual height */
-    color: var(--text-muted);
     display: flex;
     justify-content: space-between;
     align-items: center;
-    line-height: 1;                   /* tightest possible */
+    font-size: 0.6rem;
+    color: var(--text-muted);
+    padding: 0;
+    margin: 0;
+    line-height: 1;
 }
 
 .rp-info {
@@ -270,11 +428,13 @@
     white-space: nowrap;
 }
 
-/* ── EMOJI PICKER ── */
+/* ============================================
+   EMOJI PICKER (LEFT SIDE)
+   ============================================ */
 #emoji-picker {
     position: fixed;
     bottom: 130px;
-    left: 20px;
+    left: 20px; /* LEFT SIDE! */
     background: #1a1a1a;
     border: 2px solid var(--accent-green);
     border-radius: 10px;
@@ -290,11 +450,232 @@
     animation: slideUpLeft 0.2s ease-out;
 }
 
-/* ... keep your emoji-picker, attachment-preview, cancel-reply-btn, rp-notification, responsive, loading/deleted styles ... */
+@keyframes slideUpLeft {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
 
-/* RESPONSIVE example adjustment */
+#emoji-picker::-webkit-scrollbar {
+    width: 8px;
+}
+
+#emoji-picker::-webkit-scrollbar-track {
+    background: #0a0a0a;
+    border-radius: 4px;
+}
+
+#emoji-picker::-webkit-scrollbar-thumb {
+    background: var(--accent-green);
+    border-radius: 4px;
+}
+
+.emoji-picker-btn {
+    background: transparent;
+    border: none;
+    font-size: 24px;
+    cursor: pointer;
+    padding: 8px;
+    border-radius: 6px;
+    transition: all 0.2s;
+    line-height: 1;
+}
+
+.emoji-picker-btn:hover {
+    background: rgba(0, 255, 0, 0.2);
+    transform: scale(1.1);
+}
+
+.emoji-picker-btn:active {
+    transform: scale(0.9);
+}
+
+/* ============================================
+   ATTACHMENT PREVIEW
+   ============================================ */
+.attachment-preview {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem;
+    background: rgba(0, 255, 0, 0.1);
+    border: 1px solid var(--accent-green);
+    border-radius: 6px;
+    margin-bottom: 0.5rem;
+    font-size: 0.85rem;
+}
+
+.attachment-preview .file-icon {
+    font-size: 1.5rem;
+}
+
+.attachment-preview .file-info {
+    flex: 1;
+    color: var(--text-primary);
+}
+
+.attachment-preview .file-name {
+    font-weight: 600;
+}
+
+.attachment-preview .file-size {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+}
+
+.attachment-preview .remove-btn {
+    background: rgba(255, 0, 0, 0.2);
+    border: 1px solid #ff0000;
+    color: #ff0000;
+    padding: 0.3rem 0.6rem;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.75rem;
+}
+
+/* ============================================
+   CANCEL REPLY BUTTON
+   ============================================ */
+#cancel-reply-btn {
+    position: absolute;
+    top: -40px;
+    left: 0;
+    background: rgba(255, 100, 100, 0.2);
+    border: 1px solid #ff6464;
+    color: #ff6464;
+    padding: 0.4rem 0.8rem;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.8rem;
+    z-index: 10;
+    animation: slideIn 0.2s ease-out;
+}
+
+@keyframes slideIn {
+    from {
+        opacity: 0;
+        transform: translateY(-5px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* ============================================
+   RP NOTIFICATION
+   ============================================ */
+.rp-notification {
+    position: fixed;
+    top: 90px;
+    right: 20px;
+    background: rgba(0, 255, 0, 0.2);
+    border: 2px solid var(--accent-green);
+    color: var(--accent-green);
+    padding: 1rem 1.5rem;
+    border-radius: 8px;
+    font-weight: bold;
+    font-size: 1.1rem;
+    z-index: 10000;
+    animation: rpSlideIn 0.3s ease-out;
+    box-shadow: 0 4px 20px var(--glow-green);
+}
+
+@keyframes rpSlideIn {
+    from {
+        opacity: 0;
+        transform: translateX(100%);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+/* ============================================
+   RESPONSIVE
+   ============================================ */
 @media (max-width: 768px) {
-    .chat-page { padding-top: 60px; }
-    .chat-input-container { padding: 0.35rem 0.9rem 0.15rem 0.9rem; }
-    .input-info { font-size: 0.62rem; }
+    .chat-page {
+        padding-top: 60px;
+    }
+    
+    .chat-header {
+        padding: 0.6rem 1rem;
+    }
+    
+    .chat-title h2 {
+        font-size: 1rem;
+    }
+    
+    .user-info-mini {
+        display: none;
+    }
+    
+    .messages-container {
+        padding: 1rem;
+    }
+    
+    .message {
+        max-width: 85%;
+        font-size: 0.9rem;
+    }
+    
+    .chat-input-container {
+        padding: 0.5rem 1rem 0 1rem;
+    }
+    
+    .send-btn {
+        padding: 0.8rem 1.2rem;
+        font-size: 0.8rem;
+    }
+    
+    #emoji-picker {
+        max-width: 350px;
+        grid-template-columns: repeat(8, 1fr);
+        left: 10px;
+    }
+}
+
+@media (max-width: 480px) {
+    .message {
+        max-width: 90%;
+    }
+    
+    .chat-input-wrapper {
+        gap: 0.4rem;
+    }
+    
+    .input-btn {
+        width: 35px;
+        height: 35px;
+        font-size: 1.1rem;
+    }
+    
+    .send-btn {
+        padding: 0.8rem 1rem;
+    }
+}
+
+/* ============================================
+   LOADING & DELETED STATES
+   ============================================ */
+.message.loading {
+    opacity: 0.5;
+    pointer-events: none;
+}
+
+.message.deleted {
+    opacity: 0.4;
+    font-style: italic;
+}
+
+.message.deleted .message-text {
+    color: #666;
+    text-decoration: line-through;
 }
