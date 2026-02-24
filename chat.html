@@ -29,171 +29,57 @@
         </div>
     </nav>
 
+    <!-- TELEGRAM-STYLE LAYOUT -->
     <main class="chat-page">
-        <div class="chat-container">
-            <!-- Sidebar -->
-            <aside class="chat-sidebar">
-                <div class="user-profile">
-                    <div class="profile-header">
-                        <div class="profile-avatar">👤</div>
-                        <div class="profile-info">
-                            <h3 id="username">Guest User</h3>
-                            <p class="rp-display"><span class="rp-value">0</span> RP</p>
-                        </div>
-                    </div>
-                    <div class="profile-stats">
-                        <div class="stat-item">
-                            <span class="stat-label">Messages</span>
-                            <span class="stat-value" id="messageCount">0</span>
-                        </div>
-                        <div class="stat-item">
-                            <span class="stat-label">Reactions</span>
-                            <span class="stat-value" id="reactionCount">0</span>
-                        </div>
-                        <div class="stat-item">
-                            <span class="stat-label">Role</span>
-                            <span class="stat-value role-badge" id="userRole">User</span>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="rp-rewards">
-                    <h3>💎 RP REWARDS</h3>
-                    <div class="reward-list">
-                        <div class="reward-item">
-                            <span class="reward-action">New post</span>
-                            <span class="reward-rp">+2 RP</span>
-                        </div>
-                        <div class="reward-item">
-                            <span class="reward-action">Reply</span>
-                            <span class="reward-rp">+2 RP</span>
-                        </div>
-                        <div class="reward-item">
-                            <span class="reward-action">Reaction given</span>
-                            <span class="reward-rp">+1 RP</span>
-                        </div>
-                        <div class="reward-item">
-                            <span class="reward-action">Reaction received</span>
-                            <span class="reward-rp">+1 RP</span>
-                        </div>
-                        <div class="reward-item highlight">
-                            <span class="reward-action">Image post</span>
-                            <span class="reward-rp">+3 RP</span>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="chat-rules">
-                    <h3>⚠️ RULES</h3>
-                    <ul>
-                        <li>Trusted role unlocks at 10,000 RP</li>
-                        <li>Images/GIFs require Trusted role</li>
-                        <li>Spam results in -5 to -20 RP</li>
-                        <li>Deleted messages: -5 RP</li>
-                        <li>Mute penalty: -10 RP</li>
-                    </ul>
-                </div>
-            </aside>
-
-            <!-- Main Chat Area -->
-            <div class="chat-main">
-                <div class="chat-header">
+        <div class="chat-window">
+            
+            <!-- Header Row -->
+            <div class="chat-header">
+                <div class="chat-title">
                     <h2>🌐 GLOBAL CHAT</h2>
-                    <div class="chat-info">
-                        <span class="online-count">
-                            <span class="status-dot"></span>
-                            <span id="onlineUsers">127</span> Online
-                        </span>
+                    <div class="user-info-mini">
+                        <span id="username-mini">Guest</span>
+                        <span class="rp-mini"><span class="rp-value">0</span> RP</span>
                     </div>
                 </div>
-
-                <!-- Pinned Messages -->
-                <div class="pinned-messages">
-                    <div class="pinned-icon">📌</div>
-                    <div class="pinned-content">
-                        <strong>SYSTEM:</strong> Welcome to 404x1 Global Chat! Earn RP through participation. Reach 10,000 RP to unlock Trusted role. Connect your wallet to start!
-                    </div>
-                </div>
-
-                <!-- Messages Container -->
-                <div class="messages-container" id="messages-container">
-                    <div class="message system-message">
-                        <div class="message-content">
-                            <span class="message-author system">SYSTEM</span>
-                            <span class="message-text">Chat initialized. No roadmap. No utility. Only community.</span>
-                            <span class="message-time">12:00</span>
-                        </div>
-                    </div>
-
-                    <!-- Sample messages -->
-                    <div class="message">
-                        <div class="message-avatar">🔥</div>
-                        <div class="message-content">
-                            <span class="message-author">CryptoFan</span>
-                            <span class="message-text">Just earned 10,000 RP! Finally got Trusted status 🎉</span>
-                            <span class="message-time">12:15</span>
-                        </div>
-                        <div class="message-reactions">
-                            <button class="reaction">🔥 3</button>
-                            <button class="reaction">🎮 1</button>
-                        </div>
-                    </div>
-
-                    <div class="message">
-                        <div class="message-avatar">⚡</div>
-                        <div class="message-content">
-                            <span class="message-author trusted">TrustedUser</span>
-                            <span class="message-text">Welcome to the community! Make sure to check out the game - it's brutal but worth it</span>
-                            <span class="message-time">12:16</span>
-                        </div>
-                        <div class="message-reactions">
-                            <button class="reaction">👍 5</button>
-                        </div>
-                    </div>
-
-                    <div class="message reply-message">
-                        <div class="message-avatar">💎</div>
-                        <div class="message-content">
-                            <div class="reply-reference">
-                                Replying to <strong>TrustedUser</strong>
-                            </div>
-                            <span class="message-author">GameMaster</span>
-                            <span class="message-text">Beat world 3 yesterday. The difficulty curve is insane!</span>
-                            <span class="message-time">12:18</span>
-                        </div>
-                        <div class="message-reactions">
-                            <button class="reaction">💪 2</button>
-                            <button class="reaction">🎮 4</button>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Chat Input -->
-                <div class="chat-input-container">
-                    <div class="chat-input-wrapper">
-                        <button class="input-btn" id="emojiBtn" title="Emoji">😊</button>
-                        <button class="input-btn" id="imageBtn" title="Image (Trusted only)" disabled>🖼️</button>
-                        <input 
-                            type="text" 
-                            id="message-input" 
-                            class="chat-input" 
-                            placeholder="Type your message... (Login required)"
-                            disabled
-                        >
-                        <button class="send-btn" id="send-btn" disabled>
-                            <span>SEND</span>
-                        </button>
-                    </div>
-                    <div class="input-info">
-                        <span class="char-count"><span id="charCount">0</span>/500</span>
-                        <span class="slow-mode">⏱️ Slow mode: 3s</span>
-                    </div>
+                <div class="chat-status">
+                    <span class="status-dot"></span>
+                    <span id="onlineUsers">127</span> online
                 </div>
             </div>
+
+            <!-- Messages Container (Takes All Space) -->
+            <div class="messages-container" id="messages-container">
+                <!-- Messages will be dynamically inserted here -->
+            </div>
+
+            <!-- Input Container (Fixed at Bottom) -->
+            <div class="chat-input-container">
+                <div class="chat-input-wrapper">
+                    <input 
+                        type="text" 
+                        id="message-input" 
+                        class="chat-input" 
+                        placeholder="Type your message... (Login required)"
+                        maxlength="500"
+                        disabled
+                    >
+                    <button class="send-btn" id="send-btn" disabled>
+                        <span>SEND</span>
+                    </button>
+                </div>
+                <div class="input-info">
+                    <span class="char-count"><span id="charCount">0</span>/500</span>
+                    <span class="rp-info">
+                        💎 Post: +2 RP | Reply: +2 RP | React: +1 RP
+                    </span>
+                </div>
+            </div>
+            
         </div>
     </main>
 
     <script src="js/auth.js"></script>
-<script src="js/chat.js"></script>
+    <script src="js/chat.js"></script>
 </body>
 </html>
