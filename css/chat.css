@@ -317,10 +317,13 @@
 
 .chat-input-container {
     flex: 0 0 auto;
-    padding: 0.4rem 1rem;  /* ABSOLUTE MINIMUM */
+    padding: 0.5rem 1rem 0.3rem 1rem;  /* Small padding */
     background: rgba(0, 0, 0, 0.5);
     border-top: 2px solid var(--accent-green);
     backdrop-filter: blur(10px);
+    display: flex;
+    flex-direction: column;  /* Stack vertically */
+    gap: 0.3rem;  /* Small gap between input and info */
 }
 
 .chat-input-wrapper {
@@ -372,7 +375,7 @@
 .chat-input {
     flex: 1;
     order: 1;
-    padding: 0.5rem 1rem;  /* MINIMAL */
+    padding: 0.5rem 1rem;
     background: var(--bg-tertiary);
     border: 1px solid var(--border-color);
     color: var(--text-primary);
@@ -381,7 +384,7 @@
     border-radius: 6px;
     transition: all 0.3s ease;
     line-height: 1.3;
-    height: 36px;  /* Fixed height */
+    height: 36px;
 }
 
 .chat-input:focus {
@@ -411,7 +414,7 @@
     transition: all 0.3s ease;
     text-shadow: none;
     flex-shrink: 0;
-    height: 36px;  /* Match input */
+    height: 36px;
 }
 
 .send-btn:hover:not(:disabled) {
@@ -424,20 +427,16 @@
     cursor: not-allowed;
 }
 
-/* Input Info - INLINE, NO SEPARATE LINE */
+/* Input Info - AT THE BOTTOM OF PAGE */
 .input-info {
-    position: absolute;
-    bottom: -18px;  /* Place below input, tight */
-    left: 0;
-    right: 0;
     display: flex;
     justify-content: space-between;
     align-items: center;
-    font-size: 0.55rem;
+    font-size: 0.6rem;
     color: var(--text-muted);
-    padding: 0 0.3rem;
+    padding: 0;
     margin: 0;
-    line-height: 1;
+    line-height: 1.2;
 }
 
 .rp-info {
