@@ -304,13 +304,13 @@ body {
 
 .chat-input-container {
     flex: 0 0 auto;
-    padding: 0.5rem 1rem 0.3rem 1rem;
+    padding: 0.5rem 1rem 0rem 1rem; /* No bottom padding */
     background: rgba(0, 0, 0, 0.5);
     border-top: 2px solid var(--accent-green);
     backdrop-filter: blur(10px);
     display: flex;
     flex-direction: column;
-    gap: 0.3rem;
+    gap: 0rem; /* No gap! */
 }
 
 .chat-input-wrapper {
@@ -413,8 +413,8 @@ body {
 
 .input-info {
     display: flex;
-    justify-content: space-between;
-    align-items: center;
+    flex-direction: column; /* Stack vertically */
+    align-items: flex-end; /* Align to right */
     font-size: 0.6rem;
     color: var(--text-muted);
     padding: 0;
