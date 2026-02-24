@@ -318,10 +318,13 @@ body {
 
 .chat-input-container {
     flex: 0 0 auto;
-    padding: 0.5rem 1rem 0.4rem 1rem;  /* Minimal: 8px top, 6.4px bottom */
+    padding: 0.5rem 1rem 0.3rem 1rem;
     background: rgba(0, 0, 0, 0.5);
     border-top: 2px solid var(--accent-green);
     backdrop-filter: blur(10px);
+    display: flex; /* Added */
+    flex-direction: column; /* Added */
+    gap: 0; /* Added */
 }
 
 .chat-input-wrapper {
