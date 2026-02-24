@@ -1,4 +1,4 @@
-// chat-telegram-style.js - Updated with smart scrolling and Telegram-style bubbles
+// chat-fixed.js - Complete with attachments, reactions, and reply working
 
 window.API_ENDPOINTS = window.API_ENDPOINTS || {
     chatSend: 'https://code-quest-zone.base44.app/api/apps/6988b1920d2dc3e06784fc73/functions/chatSend',
@@ -27,18 +27,17 @@ const ALL_EMOJIS = [
 
 let lastMessageId = null;
 let replyingTo = null;
+let attachedFile = null;
 
 function getCurrentUser() {
     const saved = localStorage.getItem('404x1_user');
     return saved ? JSON.parse(saved) : null;
 }
 
-// Update profile display
 function updateProfileDisplay() {
     const user = getCurrentUser();
     if (!user) return;
     
-    // Update mini profile in header
     const usernameMini = document.getElementById('username-mini');
     if (usernameMini) {
         usernameMini.textContent = user.username;
@@ -50,7 +49,6 @@ function updateProfileDisplay() {
     });
 }
 
-// Load user stats
 async function loadUserStats() {
     const user = getCurrentUser();
     if (!user) return;
@@ -73,7 +71,6 @@ async function loadUserStats() {
     }
 }
 
-// Smart scroll - only auto-scroll if user was at bottom
 function smartScroll() {
     const container = document.getElementById('messages-container');
     if (!container) return;
@@ -81,13 +78,11 @@ function smartScroll() {
     const wasAtBottom = 
         Math.abs(container.scrollHeight - container.scrollTop - container.clientHeight) < 60;
 
-    // Only auto-scroll if user was already at bottom
     if (wasAtBottom) {
         container.scrollTop = container.scrollHeight;
     }
 }
 
-// Force scroll to bottom (for own messages)
 function forceScrollToBottom() {
     const container = document.getElementById('messages-container');
     if (!container) return;
@@ -95,7 +90,6 @@ function forceScrollToBottom() {
     container.scrollTop = container.scrollHeight;
 }
 
-// Load messages
 async function loadMessages() {
     try {
         const response = await fetch(`${window.API_ENDPOINTS.chatHistory}?limit=100&offset=0`);
@@ -103,8 +97,6 @@ async function loadMessages() {
 
         if (data.success) {
             displayMessages(data.messages, data.reactions || []);
-            
-            // Smart scroll after loading
             smartScroll();
         }
     } catch (error) {
@@ -112,7 +104,6 @@ async function loadMessages() {
     }
 }
 
-// Display messages with Telegram-style bubbles
 function displayMessages(messages, reactions) {
     const container = document.getElementById('messages-container');
     if (!container) return;
@@ -130,7 +121,6 @@ function displayMessages(messages, reactions) {
 
     const currentUser = getCurrentUser();
     
-    // Group reactions by message_id
     const reactionsByMessage = {};
     if (reactions && Array.isArray(reactions)) {
         reactions.forEach(r => {
@@ -141,7 +131,6 @@ function displayMessages(messages, reactions) {
         });
     }
 
-    // Sort oldest to newest
     const sortedMessages = [...messages].sort((a, b) => 
         new Date(a.created_date) - new Date(b.created_date)
     );
@@ -159,7 +148,6 @@ function displayMessages(messages, reactions) {
             minute: '2-digit'
         });
         
-        // Build reactions
         const msgReactions = reactionsByMessage[msg.id] || [];
         const reactionCounts = {};
         const userReactions = new Set();
@@ -178,7 +166,7 @@ function displayMessages(messages, reactions) {
                 const isActive = userReactions.has(emoji);
                 reactionsHTML += `
                     <span class="reaction-bubble ${isActive ? 'active' : ''}" 
-                          onclick="toggleReaction('${msg.id}', '${emoji}')"
+                          onclick="window.toggleReaction('${msg.id}', '${emoji}')"
                           title="${isActive ? 'Remove reaction' : 'React'}">
                         ${emoji} <span class="reaction-count">${count}</span>
                     </span>
@@ -187,7 +175,6 @@ function displayMessages(messages, reactions) {
             reactionsHTML += '</div>';
         }
         
-        // Telegram-style bubble
         messageDiv.innerHTML = `
             <div class="message-header">
                 <span class="username ${isOwnMessage ? 'own-username' : ''}">${escapeHtml(msg.username)}</span>
@@ -199,13 +186,13 @@ function displayMessages(messages, reactions) {
                 <div class="message-actions">
                     ${QUICK_EMOJIS.map(emoji => `
                         <button class="quick-react-btn" 
-                                onclick="reactToMessage('${msg.id}', '${emoji}')" 
+                                onclick="window.reactToMessage('${msg.id}', '${emoji}')" 
                                 title="React with ${emoji}">
                             ${emoji}
                         </button>
                     `).join('')}
                     <button class="reply-btn" 
-                            onclick="replyToMessage('${msg.id}', '${escapeHtml(msg.username)}')" 
+                            onclick="window.replyToMessage('${msg.id}', '${escapeHtml(msg.username)}')" 
                             title="Reply">
                         ↩️
                     </button>
@@ -214,13 +201,10 @@ function displayMessages(messages, reactions) {
         `;
         
         container.appendChild(messageDiv);
-        
-        // Track last message ID for detecting new messages
         lastMessageId = msg.id;
     });
 }
 
-// React to message
 async function reactToMessage(messageId, emoji) {
     const user = getCurrentUser();
     if (!user) {
@@ -245,7 +229,7 @@ async function reactToMessage(messageId, emoji) {
             await loadMessages();
             await loadUserStats();
             
-            if (data.rp_earned) {
+            if (data.rp_earned && data.action === 'added') {
                 showRpNotification('+1 RP');
             }
         } else {
@@ -262,7 +246,6 @@ async function toggleReaction(messageId, emoji) {
     await reactToMessage(messageId, emoji);
 }
 
-// Reply to message
 function replyToMessage(messageId, username) {
     replyingTo = { messageId, username };
     
@@ -272,14 +255,13 @@ function replyToMessage(messageId, username) {
         input.focus();
     }
     
-    const inputContainer = input.parentElement;
+    const inputWrapper = document.querySelector('.chat-input-wrapper');
     if (!document.getElementById('cancel-reply-btn')) {
         const cancelBtn = document.createElement('button');
         cancelBtn.id = 'cancel-reply-btn';
         cancelBtn.textContent = '✕ Cancel Reply';
-        cancelBtn.onclick = cancelReply;
-        inputContainer.style.position = 'relative';
-        inputContainer.appendChild(cancelBtn);
+        cancelBtn.onclick = () => window.cancelReply();
+        inputWrapper.appendChild(cancelBtn);
     }
 }
 
@@ -295,7 +277,75 @@ function cancelReply() {
     }
 }
 
-// Emoji picker
+function handleAttachment() {
+    const fileInput = document.getElementById('file-input');
+    if (fileInput) {
+        fileInput.click();
+    }
+}
+
+function handleFileSelect(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+    
+    if (file.size > 10 * 1024 * 1024) {
+        alert('File too large! Max size: 10MB');
+        return;
+    }
+    
+    attachedFile = file;
+    showAttachmentPreview(file);
+}
+
+function showAttachmentPreview(file) {
+    const inputWrapper = document.querySelector('.chat-input-wrapper');
+    
+    const existing = document.querySelector('.attachment-preview');
+    if (existing) existing.remove();
+    
+    const preview = document.createElement('div');
+    preview.className = 'attachment-preview';
+    
+    const icon = getFileIcon(file.type, file.name);
+    const size = formatFileSize(file.size);
+    
+    preview.innerHTML = `
+        <span class="file-icon">${icon}</span>
+        <div class="file-info">
+            <div class="file-name">${escapeHtml(file.name)}</div>
+            <div class="file-size">${size}</div>
+        </div>
+        <button class="remove-btn" onclick="window.removeAttachment()">✕</button>
+    `;
+    
+    inputWrapper.parentElement.insertBefore(preview, inputWrapper);
+}
+
+function removeAttachment() {
+    attachedFile = null;
+    const preview = document.querySelector('.attachment-preview');
+    if (preview) preview.remove();
+    
+    const fileInput = document.getElementById('file-input');
+    if (fileInput) fileInput.value = '';
+}
+
+function getFileIcon(type, name) {
+    if (type.startsWith('image/')) return '🖼️';
+    if (name.endsWith('.gif')) return '🎬';
+    if (name.endsWith('.pdf')) return '📄';
+    if (name.endsWith('.html')) return '🌐';
+    if (name.endsWith('.txt')) return '📝';
+    if (name.match(/\.(js|css|json)$/)) return '💻';
+    return '📎';
+}
+
+function formatFileSize(bytes) {
+    if (bytes < 1024) return bytes + ' B';
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+    return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+}
+
 function showEmojiPicker() {
     if (document.getElementById('emoji-picker')) {
         hideEmojiPicker();
@@ -309,7 +359,7 @@ function showEmojiPicker() {
         const btn = document.createElement('button');
         btn.textContent = emoji;
         btn.className = 'emoji-picker-btn';
-        btn.onclick = () => insertEmoji(emoji);
+        btn.onclick = () => window.insertEmoji(emoji);
         picker.appendChild(btn);
     });
     
@@ -347,7 +397,6 @@ function insertEmoji(emoji) {
     hideEmojiPicker();
 }
 
-// Send message
 async function sendMessage() {
     const user = getCurrentUser();
     if (!user) {
@@ -359,7 +408,7 @@ async function sendMessage() {
     const sendBtn = document.getElementById('send-btn');
     let messageText = input.value.trim();
 
-    if (!messageText) return;
+    if (!messageText && !attachedFile) return;
     
     if (messageText.length > 500) {
         alert('Message too long (max 500 characters)');
@@ -368,12 +417,24 @@ async function sendMessage() {
 
     let reply_to_message_id = null;
     let reply_to_username = null;
+    let image_url = null;
     
     if (replyingTo) {
         reply_to_message_id = replyingTo.messageId;
         reply_to_username = replyingTo.username;
-        messageText = `@${replyingTo.username} ${messageText}`;
+        if (messageText) {
+            messageText = `@${replyingTo.username} ${messageText}`;
+        }
         cancelReply();
+    }
+    
+    if (attachedFile) {
+        if (attachedFile.type.startsWith('image/')) {
+            messageText = messageText || 'Shared an image';
+        } else {
+            messageText = `${messageText || 'Shared a file'} [${attachedFile.name}]`;
+        }
+        removeAttachment();
     }
 
     sendBtn.disabled = true;
@@ -388,7 +449,8 @@ async function sendMessage() {
                 username: user.username,
                 message: messageText,
                 reply_to_message_id,
-                reply_to_username
+                reply_to_username,
+                image_url
             })
         });
 
@@ -401,7 +463,6 @@ async function sendMessage() {
             await loadMessages();
             await loadUserStats();
             
-            // Force scroll to bottom for own messages
             forceScrollToBottom();
             
             if (data.rp_earned) {
@@ -419,7 +480,6 @@ async function sendMessage() {
     }
 }
 
-// Show RP notification
 function showRpNotification(text) {
     const notification = document.createElement('div');
     notification.className = 'rp-notification';
@@ -428,12 +488,12 @@ function showRpNotification(text) {
     document.body.appendChild(notification);
     
     setTimeout(() => {
-        notification.style.animation = 'rpSlideOut 0.3s ease-out';
+        notification.style.opacity = '0';
+        notification.style.transform = 'translateX(100%)';
         setTimeout(() => notification.remove(), 300);
     }, 2000);
 }
 
-// Character count
 function updateCharCount() {
     const input = document.getElementById('message-input');
     const charCount = document.getElementById('charCount');
@@ -452,15 +512,15 @@ function updateChatUI() {
     const user = getCurrentUser();
     const messageInput = document.getElementById('message-input');
     const sendBtn = document.getElementById('send-btn');
+    const attachBtn = document.getElementById('attach-btn');
     
     if (user) {
         if (messageInput) {
             messageInput.disabled = false;
             messageInput.placeholder = 'Type your message...';
         }
-        if (sendBtn) {
-            sendBtn.disabled = false;
-        }
+        if (sendBtn) sendBtn.disabled = false;
+        if (attachBtn) attachBtn.disabled = false;
         updateProfileDisplay();
         loadUserStats();
     } else {
@@ -468,34 +528,17 @@ function updateChatUI() {
             messageInput.disabled = true;
             messageInput.placeholder = 'Please login to chat';
         }
-        if (sendBtn) {
-            sendBtn.disabled = true;
-        }
+        if (sendBtn) sendBtn.disabled = true;
+        if (attachBtn) attachBtn.disabled = true;
     }
 }
 
-function addEmojiButton() {
-    const chatInputWrapper = document.querySelector('.chat-input-wrapper');
-    if (!chatInputWrapper || document.getElementById('emoji-btn')) return;
-    
-    const emojiBtn = document.createElement('button');
-    emojiBtn.id = 'emoji-btn';
-    emojiBtn.innerHTML = '😊';
-    emojiBtn.title = 'Add emoji';
-    emojiBtn.type = 'button';
-    emojiBtn.onclick = (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        showEmojiPicker();
-    };
-    
-    chatInputWrapper.appendChild(emojiBtn);
-}
-
-// Initialize
 document.addEventListener('DOMContentLoaded', () => {
     const sendBtn = document.getElementById('send-btn');
     const messageInput = document.getElementById('message-input');
+    const emojiBtn = document.getElementById('emoji-btn');
+    const attachBtn = document.getElementById('attach-btn');
+    const fileInput = document.getElementById('file-input');
 
     if (sendBtn) {
         sendBtn.addEventListener('click', sendMessage);
@@ -511,17 +554,33 @@ document.addEventListener('DOMContentLoaded', () => {
         
         messageInput.addEventListener('input', updateCharCount);
     }
+    
+    if (emojiBtn) {
+        emojiBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            showEmojiPicker();
+        });
+    }
+    
+    if (attachBtn) {
+        attachBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            handleAttachment();
+        });
+    }
+    
+    if (fileInput) {
+        fileInput.addEventListener('change', handleFileSelect);
+    }
 
     updateChatUI();
-    addEmojiButton();
     loadMessages();
     
-    // Auto-refresh with smart scroll
     setInterval(loadMessages, 3000);
     setInterval(loadUserStats, 10000);
 });
 
-// Listen for login events
 window.addEventListener('userLoggedIn', () => {
     updateChatUI();
     loadMessages();
@@ -532,10 +591,11 @@ window.addEventListener('userLoggedOut', () => {
     updateChatUI();
 });
 
-// Export functions
 window.sendMessage = sendMessage;
 window.reactToMessage = reactToMessage;
 window.toggleReaction = toggleReaction;
 window.replyToMessage = replyToMessage;
+window.cancelReply = cancelReply;
 window.showEmojiPicker = showEmojiPicker;
 window.insertEmoji = insertEmoji;
+window.removeAttachment = removeAttachment;
