@@ -13,39 +13,39 @@ html, body, #root {
 }
 
 body {
-    overflow: hidden;   /* IMPORTANT: Prevent double scroll */
+    overflow: hidden;
 }
 
 /* ============================================
-   TELEGRAM-STYLE CHAT LAYOUT - FIXED
+   CHAT LAYOUT - FIXED POSITIONING
    ============================================ */
 
 .chat-page {
     position: fixed;
-    top: 70px;               /* navbar height */
+    top: 70px;
     left: 0;
     right: 0;
     bottom: 0;
     display: flex;
+    justify-content: center;
     background: var(--bg-primary);
 }
 
 .chat-window {
-    height: 100%;
+    width: 100%;
+    max-width: 1400px;
     display: flex;
     flex-direction: column;
     background: var(--bg-primary);
-    max-width: 1400px;
-    margin: 0 auto;
 }
 
 /* ============================================
-   HEADER (Compact)
+   HEADER
    ============================================ */
 
 .chat-header {
     flex: 0 0 auto;
-    padding: 0.8rem 1.5rem;  /* Reduced padding */
+    padding: 0.8rem 1.5rem;
     background: rgba(0, 0, 0, 0.4);
     border-bottom: 2px solid var(--accent-green);
     display: flex;
@@ -64,7 +64,7 @@ body {
     margin: 0;
     color: var(--accent-green);
     font-family: 'Rubik Mono One', monospace;
-    font-size: 1.3rem;  /* Slightly smaller */
+    font-size: 1.3rem;
     letter-spacing: 1px;
     text-shadow: 0 0 10px var(--glow-green);
 }
@@ -117,7 +117,7 @@ body {
 }
 
 /* ============================================
-   MESSAGES CONTAINER (Scrollable)
+   MESSAGES CONTAINER
    ============================================ */
 
 .messages-container {
@@ -145,12 +145,8 @@ body {
     border-radius: 4px;
 }
 
-.messages-container::-webkit-scrollbar-thumb:hover {
-    background: #00cc00;
-}
-
 /* ============================================
-   MESSAGE BUBBLES (Telegram Style)
+   MESSAGE BUBBLES
    ============================================ */
 
 .message {
@@ -161,7 +157,6 @@ body {
     line-height: 1.4;
     word-break: break-word;
     animation: messageSlide 0.3s ease-out;
-    position: relative;
 }
 
 @keyframes messageSlide {
@@ -175,7 +170,6 @@ body {
     }
 }
 
-/* Own Messages (Right Side) */
 .message.own-message {
     align-self: flex-end;
     background: rgba(0, 220, 0, 0.18);
@@ -184,7 +178,6 @@ body {
     color: #e0ffe0;
 }
 
-/* Other Users' Messages (Left Side) */
 .message:not(.own-message) {
     align-self: flex-start;
     background: rgba(40, 40, 50, 0.75);
@@ -193,7 +186,6 @@ body {
     color: #e0e0ff;
 }
 
-/* Message Header (Username + Time) */
 .message-header {
     display: flex;
     justify-content: space-between;
@@ -218,7 +210,6 @@ body {
     margin-left: 0.5rem;
 }
 
-/* Message Text */
 .message-text {
     color: inherit;
     display: block;
@@ -226,7 +217,7 @@ body {
 }
 
 /* ============================================
-   REACTION BUBBLES
+   REACTIONS
    ============================================ */
 
 .message-reactions {
@@ -261,7 +252,6 @@ body {
     border-color: var(--accent-green);
     border-width: 2px;
     font-weight: bold;
-    box-shadow: 0 0 8px rgba(0, 255, 0, 0.3);
 }
 
 .reaction-count {
@@ -269,10 +259,6 @@ body {
     font-weight: 600;
     color: var(--accent-green);
 }
-
-/* ============================================
-   QUICK REACTION BUTTONS (On Hover)
-   ============================================ */
 
 .message-actions {
     display: none;
@@ -313,7 +299,7 @@ body {
 }
 
 /* ============================================
-   INPUT CONTAINER (Compact)
+   INPUT CONTAINER - SINGLE DEFINITION!
    ============================================ */
 
 .chat-input-container {
@@ -322,32 +308,9 @@ body {
     background: rgba(0, 0, 0, 0.5);
     border-top: 2px solid var(--accent-green);
     backdrop-filter: blur(10px);
-    display: flex; /* Added */
-    flex-direction: column; /* Added */
-    gap: 0; /* Added */
-}
-
-.chat-input-wrapper {
     display: flex;
-    gap: 0.5rem;  /* Reduced gap */
-    align-items: center;
-    margin: 0;  /* NO MARGIN AT ALL */
-    position: relative;
-}
-
-/* ============================================
-   INPUT CONTAINER (ABSOLUTE MINIMUM)
-   ============================================ */
-
-.chat-input-container {
-    flex: 0 0 auto;
-    padding: 0.5rem 1rem 0.3rem 1rem;  /* Small padding */
-    background: rgba(0, 0, 0, 0.5);
-    border-top: 2px solid var(--accent-green);
-    backdrop-filter: blur(10px);
-    display: flex;
-    flex-direction: column;  /* Stack vertically */
-    gap: 0.3rem;  /* Small gap between input and info */
+    flex-direction: column;
+    gap: 0.3rem;
 }
 
 .chat-input-wrapper {
@@ -359,7 +322,6 @@ body {
     position: relative;
 }
 
-/* Input Buttons (Emoji Left, Attach Right) */
 .input-btn {
     width: 36px;
     height: 36px;
@@ -395,7 +357,6 @@ body {
     order: 2;
 }
 
-/* Message Input */
 .chat-input {
     flex: 1;
     order: 1;
@@ -423,7 +384,6 @@ body {
     cursor: not-allowed;
 }
 
-/* Send Button */
 .send-btn {
     order: 3;
     padding: 0.5rem 1.2rem;
@@ -451,7 +411,6 @@ body {
     cursor: not-allowed;
 }
 
-/* Input Info - AT THE BOTTOM OF PAGE */
 .input-info {
     display: flex;
     justify-content: space-between;
@@ -469,13 +428,13 @@ body {
 }
 
 /* ============================================
-   EMOJI PICKER (LEFT SIDE)
+   EMOJI PICKER
    ============================================ */
 
 #emoji-picker {
     position: fixed;
     bottom: 130px;
-    left: 20px;  /* LEFT SIDE! */
+    left: 20px;
     background: #1a1a1a;
     border: 2px solid var(--accent-green);
     border-radius: 10px;
@@ -647,7 +606,7 @@ body {
 
 @media (max-width: 768px) {
     .chat-page {
-        padding-top: 60px;
+        top: 60px;
     }
     
     .chat-header {
@@ -708,7 +667,7 @@ body {
 }
 
 /* ============================================
-   LOADING & DELETED STATES
+   STATES
    ============================================ */
 
 .message.loading {
