@@ -1035,3 +1035,78 @@ document.querySelectorAll('.feed-tab').forEach(tab => {
     
     console.log('✅ XDEX API override loaded!');
 })();
+// ========================================
+// SIMPLE PRICE SYNC FIX - ADD TO END OF script.js
+// ========================================
+(function() {
+    console.log('🔄 Starting price sync from chart...');
+    
+    const TOTAL_SUPPLY = 404404;
+    
+    // Function to sync price from chart to stats section
+    function syncPriceFromChart() {
+        const chartPriceEl = document.getElementById('chartPrice');
+        const priceXNTEl = document.getElementById('priceXNT');
+        const marketCapEl = document.getElementById('marketCap');
+        
+        if (!chartPriceEl || !priceXNTEl || !marketCapEl) return;
+        
+        // Get price from chart (format: "0.001859 XNT")
+        const chartPriceText = chartPriceEl.textContent;
+        
+        // Extract just the number
+        const priceMatch = chartPriceText.match(/(\d+\.\d+)/);
+        
+        if (priceMatch) {
+            const price = parseFloat(priceMatch[1]);
+            
+            // Update Price XNT
+            priceXNTEl.textContent = chartPriceText; // Copy exact format
+            console.log('✅ Price synced from chart:', price, 'XNT');
+            
+            // Calculate Market Cap
+            const mcap = price * TOTAL_SUPPLY;
+            
+            let formatted;
+            if (mcap >= 1e6) {
+                formatted = (mcap / 1e6).toFixed(2) + 'M';
+            } else if (mcap >= 1e3) {
+                formatted = (mcap / 1e3).toFixed(2) + 'K';
+            } else {
+                formatted = mcap.toFixed(2);
+            }
+            
+            marketCapEl.textContent = `${formatted} XNT`;
+            console.log('✅ Market cap calculated:', formatted, 'XNT');
+            
+            // Store in window for other functions
+            window.currentPrice = price;
+        }
+    }
+    
+    // Watch for changes to chart price
+    const chartPriceEl = document.getElementById('chartPrice');
+    if (chartPriceEl) {
+        // Initial sync after 2 seconds (wait for chart to load)
+        setTimeout(syncPriceFromChart, 2000);
+        
+        // Watch for changes using MutationObserver
+        const observer = new MutationObserver(() => {
+            console.log('📊 Chart price changed, syncing...');
+            syncPriceFromChart();
+        });
+        
+        observer.observe(chartPriceEl, { 
+            childList: true, 
+            characterData: true, 
+            subtree: true 
+        });
+        
+        // Also sync every 5 seconds as backup
+        setInterval(syncPriceFromChart, 5000);
+        
+        console.log('✅ Price sync active - watching chart price');
+    }
+})();
+
+console.log('✅ Simple price sync loaded');
