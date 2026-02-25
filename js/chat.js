@@ -1,11 +1,12 @@
 // chat-fixed.js - Complete with attachments, reactions, and reply working
 
-window.API_ENDPOINTS = window.API_ENDPOINTS || {
-    chatSend: 'https://code-quest-zone.base44.app/api/apps/6988b1920d2dc3e06784fc73/functions/chatSend',
-    chatHistory: 'https://code-quest-zone.base44.app/api/apps/6988b1920d2dc3e06784fc73/functions/chatHistory',
-    chatReact: 'https://code-quest-zone.base44.app/api/apps/6988b1920d2dc3e06784fc73/functions/chatReact',
-    gameStats: 'https://code-quest-zone.base44.app/api/apps/6988b1920d2dc3e06784fc73/functions/gameStats'
-};
+window.API_ENDPOINTS = window.API_ENDPOINTS || {};
+// Ensure chat-specific endpoints are always set (auth.js may have already defined
+// window.API_ENDPOINTS but without chatReact, causing reactions to silently fail)
+window.API_ENDPOINTS.chatSend     = window.API_ENDPOINTS.chatSend     || 'https://code-quest-zone.base44.app/api/apps/6988b1920d2dc3e06784fc73/functions/chatSend';
+window.API_ENDPOINTS.chatHistory  = window.API_ENDPOINTS.chatHistory  || 'https://code-quest-zone.base44.app/api/apps/6988b1920d2dc3e06784fc73/functions/chatHistory';
+window.API_ENDPOINTS.chatReact    = window.API_ENDPOINTS.chatReact    || 'https://code-quest-zone.base44.app/api/apps/6988b1920d2dc3e06784fc73/functions/chatReact';
+window.API_ENDPOINTS.gameStats    = window.API_ENDPOINTS.gameStats    || 'https://code-quest-zone.base44.app/api/apps/6988b1920d2dc3e06784fc73/functions/gameStats';
 
 const QUICK_EMOJIS = ['👍', '❤️', '😂', '🎉', '🔥', '👏'];
 
@@ -216,6 +217,13 @@ function displayMessages(messages, reactions) {
         if (!isOwnMessage) {
             const actionsDiv = document.createElement('div');
             actionsDiv.className = 'message-actions';
+
+            // Touch devices don't fire CSS :hover — toggle actions on tap of the message
+            messageDiv.addEventListener('touchstart', function(e) {
+                if (e.target.closest('.message-actions, .reaction-bubble')) return;
+                const isVisible = actionsDiv.style.display === 'flex';
+                actionsDiv.style.display = isVisible ? 'none' : 'flex';
+            }, { passive: true });
 
             QUICK_EMOJIS.forEach(emoji => {
                 const btn = document.createElement('button');
