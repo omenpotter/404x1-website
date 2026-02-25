@@ -6,6 +6,7 @@
     <title>Global Chat - 404x1</title>
     <link rel="stylesheet" href="css/styles.css">
     <link rel="stylesheet" href="css/chat.css">
+    <link rel="stylesheet" href="css/chat-additions.css">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Rubik+Mono+One&family=Share+Tech+Mono&display=swap" rel="stylesheet">
@@ -13,7 +14,7 @@
 <body>
     <div class="scanlines"></div>
     <div class="noise"></div>
-    
+
     <nav class="navbar">
         <div class="nav-container">
             <div class="nav-logo">
@@ -29,11 +30,11 @@
         </div>
     </nav>
 
-    <!-- TELEGRAM-STYLE LAYOUT -->
+    <!-- TELEGRAM-STYLE LAYOUT — structure identical to original -->
     <main class="chat-page">
         <div class="chat-window">
-            
-            <!-- Header Row -->
+
+            <!-- Header Row — only change: 🔍 button added before status dot -->
             <div class="chat-header">
                 <div class="chat-title">
                     <h2>🌐 GLOBAL CHAT</h2>
@@ -46,55 +47,72 @@
                     </span>
                 </div>
                 <div class="chat-status">
+                    <!-- NEW: search trigger -->
+                    <button id="ca-search-btn" class="ca-search-btn" title="Search messages">🔍</button>
                     <span class="status-dot"></span>
                     <span id="onlineUsers">127</span> online
                 </div>
             </div>
 
-            <!-- Messages Container (Takes All Space) -->
-            <div class="messages-container" id="messages-container">
-                <!-- Messages will be dynamically inserted here -->
+            <!-- NEW: Pinned message bar (hidden until set) -->
+            <div id="ca-pinned" class="ca-pinned" style="display:none;">
+                <span class="ca-pin-icon">📌</span>
+                <div class="ca-pinned-content">
+                    <span class="ca-pinned-label">Pinned Message</span>
+                    <span id="ca-pinned-text" class="ca-pinned-text"></span>
+                </div>
+                <button id="ca-unpin-btn" class="ca-unpin-btn" style="display:none;">✕</button>
             </div>
 
-            <!-- Input Container (Fixed at Bottom) -->
+            <!-- NEW: Search overlay (hidden by default) -->
+            <div id="ca-search-overlay" class="ca-search-overlay" style="display:none;">
+                <div class="ca-search-row">
+                    <span class="ca-search-icon">🔍</span>
+                    <input type="text" id="ca-search-input" class="ca-search-input"
+                           placeholder="Search messages…" autocomplete="off">
+                    <button id="ca-close-search" class="ca-close-search">✕</button>
+                </div>
+                <div id="ca-search-results" class="ca-search-results"></div>
+            </div>
+
+            <!-- Messages Container — id and class IDENTICAL to original -->
+            <div class="messages-container" id="messages-container"></div>
+
+            <!-- NEW: Scroll-to-bottom floating button -->
+            <button id="ca-scroll-btn" class="ca-scroll-btn" style="display:none;">↓</button>
+
+            <!-- NEW: Typing indicator (above input) -->
+            <div id="ca-typing" class="ca-typing" style="display:none;">
+                <span id="ca-typing-text" class="ca-typing-text"></span>
+                <div class="ca-typing-dots"><span></span><span></span><span></span></div>
+            </div>
+
+            <!-- Input Container — COMPLETELY UNCHANGED from original -->
             <div class="chat-input-container">
                 <div class="chat-input-wrapper">
-                    <!-- Emoji button (LEFT) -->
                     <button class="input-btn emoji-btn-left" id="emoji-btn" title="Add emoji" type="button">
                         😊
                     </button>
-                    
-                    <!-- Message input -->
-                    <input 
-                        type="text" 
-                        id="message-input" 
-                        class="chat-input" 
-                        placeholder="Type your message... (Login required)"
-                        maxlength="500"
-                        disabled
-                    >
-                    
-                    <!-- Attachment button (RIGHT) -->
+                    <input type="text" id="message-input" class="chat-input"
+                           placeholder="Type your message... (Login required)"
+                           maxlength="500" disabled>
                     <button class="input-btn attach-btn" id="attach-btn" title="Attach file" type="button" disabled>
                         📎
                     </button>
-                    
-                    <!-- Hidden file input -->
-                    <input type="file" id="file-input" style="display: none;" 
+                    <input type="file" id="file-input" style="display: none;"
                            accept="image/*,.gif,.pdf,.html,.txt,.js,.css,.json,.md" />
-                    
-                    <!-- Send button -->
-                    <button class="send-btn" id="send-btn" disabled>
-                        SEND
-                    </button>
+                    <button class="send-btn" id="send-btn" disabled>SEND</button>
                 </div>
                 <div class="input-info">
                     <span class="char-count"><span id="charCount">0</span>/500</span>
                 </div>
             </div>
-            
+
         </div>
     </main>
+
+    <!-- NEW: Context menu (JS positions it; appended to body) -->
+    <div id="ca-ctx-menu" class="ca-ctx-menu" style="display:none;"></div>
 
     <script src="js/auth.js"></script>
     <script src="js/chat.js"></script>
