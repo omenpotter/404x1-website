@@ -5,10 +5,9 @@ const NETWORK = 'X1%20Mainnet'; // URL-encoded "X1 Mainnet"
 
 // Main token addresses for 404x1
 const TOKEN_ADDRESSES = {
+    TOKEN_404x1: '4o4UheANLdqF4gSV4zWTbCTCercQNSaTm6nVcDetzPb2', // Your 404 token
     XNT: 'XNMbEwZFFBKQhqyW3taa8cAUp1xBUHfyzRFJQvZET4m',
-    WSOL: 'So11111111111111111111111111111111111111112',
-    // Add your 404x1 token address here when minted
-    TOKEN_404x1: 'YOUR_TOKEN_MINT_ADDRESS_HERE'
+    WXNT: 'So11111111111111111111111111111111111111112'
 };
 
 // Cache for API responses (5 minute TTL)
@@ -359,28 +358,116 @@ async function updateTokenPriceDisplay(tokenAddress, elementId) {
 }
 
 /**
- * Update multiple token prices on homepage
+ * Update homepage with 404 token data
  */
-async function updateAllTokenPrices() {
+async function updateHomepageStats() {
     try {
-        const data = await getTokenPrices();
+        const TOKEN_CA = TOKEN_ADDRESSES.TOKEN_404x1;
         
-        if (data.success && data.prices) {
-            // Update XNT price
-            const xntPrice = document.getElementById('xnt-price');
-            if (xntPrice && data.prices[TOKEN_ADDRESSES.XNT]) {
-                xntPrice.textContent = `$${formatPrice(data.prices[TOKEN_ADDRESSES.XNT])}`;
+        // Get token price in XNT
+        const priceData = await getTokenPrice(TOKEN_CA);
+        
+        if (priceData && priceData.price) {
+            // Update Price XNT display
+            const priceXNT = document.getElementById('priceXNT');
+            if (priceXNT) {
+                priceXNT.textContent = `${formatPrice(priceData.price, 6)} XNT`;
             }
             
-            // Update 404x1 token price if exists
-            const token404x1Price = document.getElementById('404x1-token-price');
-            if (token404x1Price && data.prices[TOKEN_ADDRESSES.TOKEN_404x1]) {
-                token404x1Price.textContent = `$${formatPrice(data.prices[TOKEN_ADDRESSES.TOKEN_404x1])}`;
+            // Update chart price
+            const chartPrice = document.getElementById('chartPrice');
+            if (chartPrice) {
+                chartPrice.textContent = `${formatPrice(priceData.price, 6)} XNT`;
+            }
+            
+            // Update price change if available
+            const chartPriceChange = document.getElementById('chartPriceChange');
+            if (chartPriceChange && priceData.change_24h) {
+                const isPositive = priceData.change_24h >= 0;
+                chartPriceChange.textContent = `(${isPositive ? '+' : ''}${priceData.change_24h.toFixed(2)}%)`;
+                chartPriceChange.style.color = isPositive ? '#00ff00' : '#ff0000';
             }
         }
+        
+        // Get pool data for the 404/WXNT pair
+        const poolData = await getPoolByTokenPair(TOKEN_CA, TOKEN_ADDRESSES.WXNT);
+        
+        if (poolData && poolData.success && poolData.pool) {
+            const pool = poolData.pool;
+            
+            // Update holders count if available
+            const holdersEl = document.getElementById('holders');
+            if (holdersEl && pool.holders) {
+                holdersEl.textContent = `${pool.holders} holders`;
+            }
+            
+            // Calculate and update market cap
+            const marketCapEl = document.getElementById('marketCap');
+            if (marketCapEl && pool.total_supply && priceData.price) {
+                const marketCap = pool.total_supply * priceData.price;
+                marketCapEl.textContent = `${formatNumber(marketCap)} XNT`;
+            } else if (marketCapEl && pool.liquidity) {
+                // Fallback: show liquidity * 2 as market cap estimate
+                marketCapEl.textContent = `${formatNumber(pool.liquidity * 2)} XNT`;
+            }
+        }
+        
+        // Try to get additional data from wallet tokens endpoint
+        // (This gives us holder count and total supply)
+        try {
+            // Use a known holder wallet to get token info
+            const walletData = await fetch(`${XDEX_API_BASE}/api/xendex/wallet/tokens?network=${NETWORK}&wallet_address=11111111111111111111111111111111`);
+            const walletJson = await walletData.json();
+            
+            if (walletJson.success && walletJson.data) {
+                // Process holder/supply data if available in response
+                console.log('Wallet data:', walletJson);
+            }
+        } catch (e) {
+            console.log('Could not fetch additional wallet data:', e);
+        }
+        
     } catch (error) {
-        console.error('Error updating all token prices:', error);
+        console.error('Error updating homepage stats:', error);
     }
+}
+
+/**
+ * Get holders count (requires scanning multiple wallets or using pool data)
+ */
+async function getHoldersCount() {
+    try {
+        const poolData = await getAllPools();
+        
+        if (poolData && poolData.success && poolData.pools) {
+            const token404Pool = poolData.pools.find(p => 
+                p.token_a === TOKEN_ADDRESSES.TOKEN_404x1 || 
+                p.token_b === TOKEN_ADDRESSES.TOKEN_404x1
+            );
+            
+            if (token404Pool && token404Pool.holders) {
+                return token404Pool.holders;
+            }
+        }
+        
+        return null;
+    } catch (error) {
+        console.error('Error getting holders count:', error);
+        return null;
+    }
+}
+
+/**
+ * Auto-refresh homepage stats
+ */
+function startHomepageAutoRefresh() {
+    // Initial load
+    updateHomepageStats();
+    
+    // Refresh every 30 seconds
+    setInterval(() => {
+        updateHomepageStats();
+    }, 30000);
 }
 
 /**
@@ -408,19 +495,50 @@ async function updatePoolStats() {
  * Auto-refresh prices every 30 seconds
  */
 function startPriceAutoRefresh() {
-    // Initial load
-    updateAllTokenPrices();
-    updatePoolStats();
+    // Check if we're on the homepage
+    const isHomepage = document.getElementById('priceXNT') !== null;
     
-    // Refresh every 30 seconds
-    setInterval(() => {
+    if (isHomepage) {
+        // Homepage: update token stats
+        startHomepageAutoRefresh();
+    } else {
+        // Other pages: update generic prices
         updateAllTokenPrices();
-    }, 30000);
-    
-    // Refresh pool stats every 5 minutes
-    setInterval(() => {
         updatePoolStats();
-    }, 300000);
+        
+        setInterval(() => {
+            updateAllTokenPrices();
+        }, 30000);
+        
+        setInterval(() => {
+            updatePoolStats();
+        }, 300000);
+    }
+}
+
+/**
+ * Update multiple token prices on other pages
+ */
+async function updateAllTokenPrices() {
+    try {
+        const data = await getTokenPrices();
+        
+        if (data.success && data.prices) {
+            // Update XNT price
+            const xntPrice = document.getElementById('xnt-price');
+            if (xntPrice && data.prices[TOKEN_ADDRESSES.XNT]) {
+                xntPrice.textContent = `$${formatPrice(data.prices[TOKEN_ADDRESSES.XNT])}`;
+            }
+            
+            // Update 404x1 token price if exists
+            const token404x1Price = document.getElementById('404x1-token-price');
+            if (token404x1Price && data.prices[TOKEN_ADDRESSES.TOKEN_404x1]) {
+                token404x1Price.textContent = `$${formatPrice(data.prices[TOKEN_ADDRESSES.TOKEN_404x1])}`;
+            }
+        }
+    } catch (error) {
+        console.error('Error updating all token prices:', error);
+    }
 }
 
 // ============================================
@@ -456,7 +574,10 @@ window.XDEX_API = {
     updateTokenPriceDisplay,
     updateAllTokenPrices,
     updatePoolStats,
+    updateHomepageStats,
+    getHoldersCount,
     startPriceAutoRefresh,
+    startHomepageAutoRefresh,
     
     // Constants
     TOKEN_ADDRESSES,
