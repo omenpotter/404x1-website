@@ -253,102 +253,13 @@ let tokenDecimals = 9;
 let poolTokenAccount404 = null;
 let poolTokenAccountXNT = null;
 
+// NOTE: These functions will be OVERRIDDEN at the end of this file by XDEX API
 async function fetchTokenPrice() {
-    const priceEl = document.getElementById('priceXNT');
-    try {
-        if (!poolTokenAccount404 || !poolTokenAccountXNT) {
-            await discoverPoolAccounts();
-        }
-        if (!poolTokenAccount404 || !poolTokenAccountXNT) {
-            console.log('Pool accounts not yet discovered — waiting for first tx');
-            return null;
-        }
-
-        const [res404, resXNT] = await Promise.all([
-            fetch(X1_RPC, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'getTokenAccountBalance', params: [poolTokenAccount404] })
-            }),
-            fetch(X1_RPC, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ jsonrpc: '2.0', id: 2, method: 'getTokenAccountBalance', params: [poolTokenAccountXNT] })
-            })
-        ]);
-
-        const data404 = await res404.json();
-        const dataXNT = await resXNT.json();
-        const reserve404 = parseFloat(data404.result?.value?.uiAmount || 0);
-        const reserveXNT = parseFloat(dataXNT.result?.value?.uiAmount || 0);
-
-        console.log(`Pool reserves: ${reserveXNT} XNT / ${reserve404} 404`);
-
-        if (reserve404 > 0 && reserveXNT > 0) {
-            currentPrice = reserveXNT / reserve404;
-            priceEl.textContent = `${currentPrice.toFixed(6)} XNT`;
-            console.log(`Price = ${reserveXNT} / ${reserve404} = ${currentPrice} XNT`);
-            return currentPrice;
-        }
-    } catch (e) {
-        console.error('Price fetch error:', e.message);
-    }
-
-    if (currentPrice) {
-        priceEl.textContent = `${currentPrice.toFixed(6)} XNT`;
-    } else {
-        priceEl.textContent = 'Loading...';
-    }
-    return currentPrice;
+    return null; // Will be replaced
 }
 
-async function discoverPoolAccounts() {
-    try {
-        const sigRes = await fetch(X1_RPC, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'getSignaturesForAddress', params: [TOKEN_CA, { limit: 10 }] })
-        });
-        const sigData = await sigRes.json();
-        if (!sigData.result) return;
-
-        for (let i = 0; i < sigData.result.length; i++) {
-            const txRes = await fetch(X1_RPC, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ jsonrpc: '2.0', id: 2, method: 'getTransaction', params: [sigData.result[i].signature, { encoding: 'jsonParsed', maxSupportedTransactionVersion: 0 }] })
-            });
-            const txData = await txRes.json();
-            if (!txData.result?.meta) continue;
-
-            const meta = txData.result.meta;
-            const allBalances = [...(meta.postTokenBalances || []), ...(meta.preTokenBalances || [])];
-
-            let best404 = null, best404Amt = 0;
-            let bestXNT = null, bestXNTAmt = 0;
-
-            allBalances.forEach(b => {
-                if (b.mint === TOKEN_CA && b.owner) {
-                    const amt = parseFloat(b.uiTokenAmount?.uiAmount || b.uiTokenAmount?.amount || 0);
-                    if (amt > best404Amt) { best404Amt = amt; best404 = b; }
-                }
-                if (b.mint === WXNT_ADDRESS && b.owner) {
-                    const amt = parseFloat(b.uiTokenAmount?.uiAmount || b.uiTokenAmount?.amount || 0);
-                    if (amt > bestXNTAmt) { bestXNTAmt = amt; bestXNT = b; }
-                }
-            });
-
-            if (best404 && bestXNT && best404.owner === bestXNT.owner) {
-                const accountKeys = txData.result.transaction.message.accountKeys.map(k => typeof k === 'string' ? k : k.pubkey);
-                poolTokenAccount404 = accountKeys[best404.accountIndex];
-                poolTokenAccountXNT = accountKeys[bestXNT.accountIndex];
-                console.log(`Discovered pool accounts: 404=${poolTokenAccount404} | XNT=${poolTokenAccountXNT} | owner=${best404.owner}`);
-                return;
-            }
-        }
-    } catch (e) {
-        console.error('Pool discovery error:', e.message);
-    }
+async function calculateMarketCap() {
+    return; // Will be replaced
 }
 
 async function fetchTokenSupply() {
@@ -523,13 +434,6 @@ async function fetchDetailedTransactions() {
 
             rendered++;
 
-            if (rendered === 1 && txDetail.price > 0 && !currentPrice) {
-                currentPrice = txDetail.price;
-                const priceEl = document.getElementById('priceXNT');
-                if (priceEl) priceEl.textContent = `${currentPrice.toFixed(6)} XNT`;
-                calculateMarketCap();
-            }
-
             const date = new Date(sig.blockTime * 1000);
             const dateStr = date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short' });
             const timeStr = date.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
@@ -643,27 +547,6 @@ async function fetchTransactionDetail(signature) {
     return null;
 }
 
-const FIXED_SUPPLY = 404404;
-
-async function calculateMarketCap() {
-    try {
-        if (currentPrice) {
-            const marketCap = currentPrice * FIXED_SUPPLY;
-            let formatted;
-            if (marketCap >= 1000000) formatted = `${(marketCap / 1000000).toFixed(2)}M`;
-            else if (marketCap >= 1000) formatted = `${(marketCap / 1000).toFixed(2)}K`;
-            else if (marketCap >= 1) formatted = marketCap.toFixed(2);
-            else formatted = marketCap.toFixed(4);
-            document.getElementById('marketCap').textContent = `${formatted} XNT`;
-        } else {
-            document.getElementById('marketCap').textContent = 'Calculating...';
-        }
-    } catch (error) {
-        console.error('Error calculating market cap:', error);
-        document.getElementById('marketCap').textContent = 'Error';
-    }
-}
-
 async function initializeTokenData() {
     if (!document.getElementById('priceXNT')) return;
     try {
@@ -674,14 +557,6 @@ async function initializeTokenData() {
     } catch (error) {
         console.error('Error initializing token data:', error);
     }
-}
-
-if (document.getElementById('priceXNT')) {
-    initializeTokenData();
-    setInterval(async () => {
-        await fetchTokenPrice();
-        await calculateMarketCap();
-    }, 30000);
 }
 
 // Feed tab switching
@@ -931,20 +806,14 @@ document.querySelectorAll('.feed-tab').forEach(tab => {
 
         if (xnt > 0 && token404 > 0) {
             const price = xnt / token404;
-            
-            // Filter out anomalous prices that are way off from expected range
-            // Normal 404 price should be around 0.001-0.01 XNT
-            // Reject prices that are < 0.0001 or > 0.1 (likely failed/partial swaps)
             if (price < 0.0001 || price > 0.1) {
-                return null; // Filter out anomalous trade
+                return null;
             }
-            
             return { time: sig.blockTime, price: price, xnt: xnt, token404: token404 };
         }
         return null;
     }
 
-    // Helper function to update price display
     function updatePriceDisplay(trades) {
         if (trades.length === 0) return;
         
@@ -965,9 +834,8 @@ document.querySelectorAll('.feed-tab').forEach(tab => {
 
     async function fetchTrades() {
         try {
-            // Check cache first
             const CACHE_KEY = 'chart_trades_cache';
-            const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+            const CACHE_DURATION = 5 * 60 * 1000;
             const cached = localStorage.getItem(CACHE_KEY);
             
             if (cached) {
@@ -978,7 +846,7 @@ document.querySelectorAll('.feed-tab').forEach(tab => {
                         allTrades = cachedTrades;
                         sendToChart({ type: 'trades', trades: allTrades, tf: currentTF });
                         updatePriceDisplay(cachedTrades);
-                        return; // Use cache, skip fetching
+                        return;
                     }
                 } catch (e) {
                     console.warn('[Chart] Cache invalid, refetching...');
@@ -986,7 +854,6 @@ document.querySelectorAll('.feed-tab').forEach(tab => {
             }
             
             console.log('[Chart] Fetching fresh data...');
-            console.log('[Chart] Fetching signatures...');
             const sigRes = await fetch(X1_RPC, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -1001,16 +868,14 @@ document.querySelectorAll('.feed-tab').forEach(tab => {
             const sigs = sigData.result;
             const trades = [];
             const MAX_TRADES = 200;
-            const MAX_SIGS_TO_CHECK = 300; // Reduced since batching is faster
-            const BATCH_SIZE = 20; // Fetch 20 transactions per request
+            const MAX_SIGS_TO_CHECK = 300;
+            const BATCH_SIZE = 20;
             
             console.log(`[Chart] Processing ${MAX_SIGS_TO_CHECK} transactions in batches of ${BATCH_SIZE}...`);
 
-            // Process in batches
             for (let i = 0; i < Math.min(sigs.length, MAX_SIGS_TO_CHECK) && trades.length < MAX_TRADES; i += BATCH_SIZE) {
                 const batchSigs = sigs.slice(i, i + BATCH_SIZE);
                 
-                // Create batch request (multiple getTransaction calls in one HTTP request)
                 const batchRequest = batchSigs.map((sig, idx) => ({
                     jsonrpc: '2.0',
                     id: i + idx,
@@ -1019,7 +884,6 @@ document.querySelectorAll('.feed-tab').forEach(tab => {
                 }));
 
                 try {
-                    // Single HTTP request for entire batch
                     const batchRes = await fetch(X1_RPC, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
@@ -1028,7 +892,6 @@ document.querySelectorAll('.feed-tab').forEach(tab => {
                     
                     const batchData = await batchRes.json();
                     
-                    // Process all responses in the batch
                     batchData.forEach((txData, idx) => {
                         if (!txData?.result) return;
                         const trade = parseTrade(batchSigs[idx], txData);
@@ -1042,14 +905,12 @@ document.querySelectorAll('.feed-tab').forEach(tab => {
                     continue;
                 }
                 
-                // Stop if we have enough trades
                 if (trades.length >= MAX_TRADES) break;
             }
 
             trades.sort((a, b) => a.time - b.time);
             allTrades = trades;
 
-            // Save to cache
             try {
                 localStorage.setItem(CACHE_KEY, JSON.stringify({
                     trades: allTrades,
@@ -1099,49 +960,78 @@ document.querySelectorAll('.feed-tab').forEach(tab => {
     fetchTrades();
     setInterval(fetchTrades, 60000);
 })();
+
 // ========================================
-// XDEX API OVERRIDE - ADD ONLY ONCE!
+// XDEX API OVERRIDE - MUST BE LAST!
 // ========================================
 (function() {
+    console.log('🚀 Loading XDEX API price override...');
+    
     const TOKEN_CA = '4o4UheANLdqF4gSV4zWTbCTCercQNSaTm6nVcDetzPb2';
     const TOTAL_SUPPLY = 404404;
     
+    // OVERRIDE fetchTokenPrice
     window.fetchTokenPrice = async function() {
+        console.log('📊 Fetching price from XDEX API...');
         try {
             const res = await fetch(`https://api.xdex.xyz/api/token-price/price?network=X1%20Mainnet&address=${TOKEN_CA}`);
             const data = await res.json();
             
             if (data?.price) {
                 window.currentPrice = data.price;
-                document.getElementById('priceXNT').textContent = `${data.price.toFixed(6)} XNT`;
-                document.getElementById('chartPrice').textContent = `${data.price.toFixed(6)} XNT`;
+                const priceEl = document.getElementById('priceXNT');
+                const chartPriceEl = document.getElementById('chartPrice');
+                const chartPriceChangeEl = document.getElementById('chartPriceChange');
                 
-                if (data.change_24h !== undefined) {
-                    const el = document.getElementById('chartPriceChange');
+                if (priceEl) priceEl.textContent = `${data.price.toFixed(6)} XNT`;
+                if (chartPriceEl) chartPriceEl.textContent = `${data.price.toFixed(6)} XNT`;
+                
+                if (chartPriceChangeEl && data.change_24h !== undefined) {
                     const isPos = data.change_24h >= 0;
-                    el.textContent = `(${isPos ? '+' : ''}${data.change_24h.toFixed(2)}%)`;
-                    el.style.color = isPos ? '#00ff00' : '#ff0000';
+                    chartPriceChangeEl.textContent = `(${isPos ? '+' : ''}${data.change_24h.toFixed(2)}%)`;
+                    chartPriceChangeEl.style.color = isPos ? '#00ff00' : '#ff0000';
                 }
-                console.log('✅ Price:', data.price);
+                
+                console.log('✅ Price updated:', data.price, 'XNT');
                 return data.price;
             }
         } catch (e) {
-            console.error('Price error:', e);
+            console.error('❌ XDEX API error:', e);
         }
         return null;
     };
     
+    // OVERRIDE calculateMarketCap
     window.calculateMarketCap = function() {
-        if (!window.currentPrice) return;
+        console.log('💰 Calculating market cap...');
+        if (!window.currentPrice) {
+            console.log('⚠️ No price yet');
+            return;
+        }
         const mcap = TOTAL_SUPPLY * window.currentPrice;
         const formatted = mcap >= 1e6 ? (mcap/1e6).toFixed(2)+'M' : 
                          mcap >= 1e3 ? (mcap/1e3).toFixed(2)+'K' : mcap.toFixed(2);
         document.getElementById('marketCap').textContent = `${formatted} XNT`;
-        console.log('✅ Market cap:', formatted);
+        console.log('✅ Market cap:', formatted, 'XNT');
     };
     
+    // INITIALIZE
     if (document.getElementById('priceXNT')) {
-        fetchTokenPrice().then(calculateMarketCap);
-        setInterval(() => fetchTokenPrice().then(calculateMarketCap), 30000);
+        console.log('📊 Starting XDEX price updates...');
+        
+        // Initial load
+        fetchTokenPrice().then(() => {
+            calculateMarketCap();
+            fetchAllHolders();
+            fetchDetailedTransactions();
+        });
+        
+        // Auto-refresh every 30 seconds
+        setInterval(() => {
+            console.log('🔄 Auto-refresh...');
+            fetchTokenPrice().then(calculateMarketCap);
+        }, 30000);
     }
+    
+    console.log('✅ XDEX API override loaded!');
 })();
