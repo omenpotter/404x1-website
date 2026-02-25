@@ -120,7 +120,7 @@ function displayMessages(messages, reactions) {
     }
 
     const currentUser = getCurrentUser();
-    
+
     const reactionsByMessage = {};
     if (reactions && Array.isArray(reactions)) {
         reactions.forEach(r => {
@@ -131,75 +131,118 @@ function displayMessages(messages, reactions) {
         });
     }
 
-    const sortedMessages = [...messages].sort((a, b) => 
+    const sortedMessages = [...messages].sort((a, b) =>
         new Date(a.created_date) - new Date(b.created_date)
     );
 
     sortedMessages.forEach(msg => {
         if (msg.is_deleted) return;
-        
+
         const messageDiv = document.createElement('div');
         const isOwnMessage = currentUser && msg.username === currentUser.username;
         messageDiv.className = `message ${isOwnMessage ? 'own-message' : ''}`;
         messageDiv.setAttribute('data-message-id', msg.id);
-        
+
         const time = new Date(msg.created_date).toLocaleTimeString('en-US', {
             hour: '2-digit',
             minute: '2-digit'
         });
-        
+
         const msgReactions = reactionsByMessage[msg.id] || [];
         const reactionCounts = {};
         const userReactions = new Set();
-        
+
         msgReactions.forEach(r => {
             reactionCounts[r.emoji] = (reactionCounts[r.emoji] || 0) + 1;
             if (currentUser && r.from_player_id === currentUser.id) {
                 userReactions.add(r.emoji);
             }
         });
-        
-        let reactionsHTML = '';
+
+        // --- Header ---
+        const header = document.createElement('div');
+        header.className = 'message-header';
+
+        const usernameSpan = document.createElement('span');
+        usernameSpan.className = `username ${isOwnMessage ? 'own-username' : ''}`;
+        usernameSpan.textContent = msg.username;
+
+        const timeSpan = document.createElement('span');
+        timeSpan.className = 'time';
+        timeSpan.textContent = time;
+
+        header.appendChild(usernameSpan);
+        header.appendChild(timeSpan);
+
+        // --- Message text ---
+        const textDiv = document.createElement('div');
+        textDiv.className = 'message-text';
+        textDiv.textContent = msg.message;
+
+        messageDiv.appendChild(header);
+        messageDiv.appendChild(textDiv);
+
+        // --- Reactions ---
         if (Object.keys(reactionCounts).length > 0) {
-            reactionsHTML = '<div class="message-reactions">';
+            const reactionsDiv = document.createElement('div');
+            reactionsDiv.className = 'message-reactions';
+
             for (const [emoji, count] of Object.entries(reactionCounts)) {
                 const isActive = userReactions.has(emoji);
-                reactionsHTML += `
-                    <span class="reaction-bubble ${isActive ? 'active' : ''}" 
-                          onclick="window.toggleReaction('${msg.id}', '${emoji}')"
-                          title="${isActive ? 'Remove reaction' : 'React'}">
-                        ${emoji} <span class="reaction-count">${count}</span>
-                    </span>
-                `;
+                const bubble = document.createElement('span');
+                bubble.className = `reaction-bubble ${isActive ? 'active' : ''}`;
+                bubble.title = isActive ? 'Remove reaction' : 'React';
+
+                const emojiSpan = document.createTextNode(emoji + ' ');
+                const countSpan = document.createElement('span');
+                countSpan.className = 'reaction-count';
+                countSpan.textContent = count;
+
+                bubble.appendChild(emojiSpan);
+                bubble.appendChild(countSpan);
+
+                // Safe event listener — no inline onclick, no emoji in HTML string
+                bubble.addEventListener('click', (function(mId, em) {
+                    return function() { toggleReaction(mId, em); };
+                })(msg.id, emoji));
+
+                reactionsDiv.appendChild(bubble);
             }
-            reactionsHTML += '</div>';
+
+            messageDiv.appendChild(reactionsDiv);
         }
-        
-        messageDiv.innerHTML = `
-            <div class="message-header">
-                <span class="username ${isOwnMessage ? 'own-username' : ''}">${escapeHtml(msg.username)}</span>
-                <span class="time">${time}</span>
-            </div>
-            <div class="message-text">${escapeHtml(msg.message)}</div>
-            ${reactionsHTML}
-            ${!isOwnMessage ? `
-                <div class="message-actions">
-                    ${QUICK_EMOJIS.map(emoji => `
-                        <button class="quick-react-btn" 
-                                onclick="window.reactToMessage('${msg.id}', '${emoji}')" 
-                                title="React with ${emoji}">
-                            ${emoji}
-                        </button>
-                    `).join('')}
-                    <button class="reply-btn" 
-                            onclick="window.replyToMessage('${msg.id}', '${escapeHtml(msg.username)}')" 
-                            title="Reply">
-                        ↩️
-                    </button>
-                </div>
-            ` : ''}
-        `;
-        
+
+        // --- Actions (quick react + reply) for others' messages ---
+        if (!isOwnMessage) {
+            const actionsDiv = document.createElement('div');
+            actionsDiv.className = 'message-actions';
+
+            QUICK_EMOJIS.forEach(emoji => {
+                const btn = document.createElement('button');
+                btn.className = 'quick-react-btn';
+                btn.title = `React with ${emoji}`;
+                btn.textContent = emoji;
+
+                btn.addEventListener('click', (function(mId, em) {
+                    return function() { reactToMessage(mId, em); };
+                })(msg.id, emoji));
+
+                actionsDiv.appendChild(btn);
+            });
+
+            const replyBtn = document.createElement('button');
+            replyBtn.className = 'reply-btn';
+            replyBtn.title = 'Reply';
+            replyBtn.textContent = '↩️';
+
+            replyBtn.addEventListener('click', (function(mId, uname) {
+                return function() { replyToMessage(mId, uname); };
+            })(msg.id, msg.username));
+
+            actionsDiv.appendChild(replyBtn);
+            messageDiv.appendChild(actionsDiv);
+        }
+
         container.appendChild(messageDiv);
         lastMessageId = msg.id;
     });
@@ -260,7 +303,7 @@ function replyToMessage(messageId, username) {
         const cancelBtn = document.createElement('button');
         cancelBtn.id = 'cancel-reply-btn';
         cancelBtn.textContent = '✕ Cancel Reply';
-        cancelBtn.onclick = () => window.cancelReply();
+        cancelBtn.addEventListener('click', cancelReply);
         inputWrapper.appendChild(cancelBtn);
     }
 }
