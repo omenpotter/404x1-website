@@ -1099,3 +1099,176 @@ document.querySelectorAll('.feed-tab').forEach(tab => {
     fetchTrades();
     setInterval(fetchTrades, 60000);
 })();
+// PRICE FETCHING REPLACEMENT - USE XDEX API INSTEAD OF RPC
+
+// Replace the fetchTokenPrice function with XDEX API version
+async function fetchTokenPrice() {
+    const priceEl = document.getElementById('priceXNT');
+    const chartPriceEl = document.getElementById('chartPrice');
+    const chartPriceChangeEl = document.getElementById('chartPriceChange');
+    
+    try {
+        // Use XDEX API to get price
+        const TOKEN_CA = '4o4UheANLdqF4gSV4zWTbCTCercQNSaTm6nVcDetzPb2';
+        
+        const response = await fetch(
+            `https://api.xdex.xyz/api/token-price/price?network=X1%20Mainnet&address=${TOKEN_CA}`
+        );
+        
+        const data = await response.json();
+        
+        if (data && data.price) {
+            currentPrice = data.price;
+            
+            // Update Price XNT
+            if (priceEl) {
+                priceEl.textContent = `${currentPrice.toFixed(6)} XNT`;
+            }
+            
+            // Update chart price
+            if (chartPriceEl) {
+                chartPriceEl.textContent = `${currentPrice.toFixed(6)} XNT`;
+            }
+            
+            // Update price change
+            if (chartPriceChangeEl && data.change_24h !== undefined) {
+                const change = data.change_24h;
+                const isPositive = change >= 0;
+                chartPriceChangeEl.textContent = `(${isPositive ? '+' : ''}${change.toFixed(2)}%)`;
+                chartPriceChangeEl.style.color = isPositive ? '#00ff00' : '#ff0000';
+            }
+            
+            console.log('✅ Price updated from XDEX:', currentPrice, 'XNT');
+            return currentPrice;
+        } else {
+            console.warn('⚠️ No price data from XDEX API');
+            if (priceEl) priceEl.textContent = 'N/A';
+            return null;
+        }
+    } catch (error) {
+        console.error('❌ Error fetching price from XDEX:', error);
+        if (priceEl) priceEl.textContent = 'Error';
+        return null;
+    }
+}
+
+// Replace calculateMarketCap with XDEX pool data
+async function calculateMarketCap() {
+    const marketCapEl = document.getElementById('marketCap');
+    if (!marketCapEl) return;
+    
+    try {
+        const TOKEN_CA = '4o4UheANLdqF4gSV4zWTbCTCercQNSaTm6nVcDetzPb2';
+        const WXNT_ADDRESS = 'So11111111111111111111111111111111111111112';
+        
+        // Get pool data
+        const poolResponse = await fetch(
+            `https://api.xdex.xyz/api/xendex/pool/tokens/${TOKEN_CA}/${WXNT_ADDRESS}?network=X1%20Mainnet`
+        );
+        
+        const poolData = await poolResponse.json();
+        
+        if (poolData && poolData.success && poolData.pool) {
+            const pool = poolData.pool;
+            
+            // Calculate market cap: total_supply × price
+            if (pool.total_supply && currentPrice) {
+                const marketCap = pool.total_supply * currentPrice;
+                
+                // Format number
+                let formatted;
+                if (marketCap >= 1e6) {
+                    formatted = (marketCap / 1e6).toFixed(2) + 'M';
+                } else if (marketCap >= 1e3) {
+                    formatted = (marketCap / 1e3).toFixed(2) + 'K';
+                } else {
+                    formatted = marketCap.toFixed(2);
+                }
+                
+                marketCapEl.textContent = `${formatted} XNT`;
+                console.log('✅ Market cap updated:', formatted, 'XNT');
+            } else if (pool.liquidity) {
+                // Fallback: use liquidity × 2
+                const estimatedMCap = pool.liquidity * 2;
+                let formatted;
+                if (estimatedMCap >= 1e6) {
+                    formatted = (estimatedMCap / 1e6).toFixed(2) + 'M';
+                } else if (estimatedMCap >= 1e3) {
+                    formatted = (estimatedMCap / 1e3).toFixed(2) + 'K';
+                } else {
+                    formatted = estimatedMCap.toFixed(2);
+                }
+                marketCapEl.textContent = `${formatted} XNT`;
+            }
+        }
+    } catch (error) {
+        console.error('❌ Error calculating market cap:', error);
+        marketCapEl.textContent = 'N/A';
+    }
+}
+
+// Get holders count from pool data
+async function fetchHoldersCount() {
+    const holdersEl = document.getElementById('holders');
+    if (!holdersEl) return;
+    
+    try {
+        const TOKEN_CA = '4o4UheANLdqF4gSV4zWTbCTCercQNSaTm6nVcDetzPb2';
+        const WXNT_ADDRESS = 'So11111111111111111111111111111111111111112';
+        
+        const poolResponse = await fetch(
+            `https://api.xdex.xyz/api/xendex/pool/tokens/${TOKEN_CA}/${WXNT_ADDRESS}?network=X1%20Mainnet`
+        );
+        
+        const poolData = await poolResponse.json();
+        
+        if (poolData && poolData.success && poolData.pool && poolData.pool.holders) {
+            holdersEl.textContent = `${poolData.pool.holders} holders`;
+            console.log('✅ Holders updated:', poolData.pool.holders);
+        } else {
+            // Keep existing value or try alternative method
+            console.log('⚠️ Holders data not available in pool response');
+        }
+    } catch (error) {
+        console.error('❌ Error fetching holders:', error);
+    }
+}
+
+// Initialize everything
+async function initializeTokenData() {
+    if (!document.getElementById('priceXNT')) return;
+    
+    console.log('🚀 Initializing token data with XDEX API...');
+    
+    try {
+        await fetchTokenPrice();
+        await calculateMarketCap();
+        await fetchHoldersCount();
+        
+        // Keep your existing functions for transactions/holders list
+        if (typeof fetchDetailedTransactions === 'function') {
+            fetchDetailedTransactions();
+        }
+        if (typeof fetchAllHolders === 'function') {
+            fetchAllHolders();
+        }
+    } catch (error) {
+        console.error('❌ Error initializing token data:', error);
+    }
+}
+
+// Auto-refresh every 30 seconds
+if (document.getElementById('priceXNT')) {
+    console.log('📊 Starting XDEX API price updates...');
+    
+    // Initial load
+    initializeTokenData();
+    
+    // Refresh every 30 seconds
+    setInterval(async () => {
+        console.log('🔄 Refreshing price data...');
+        await fetchTokenPrice();
+        await calculateMarketCap();
+        await fetchHoldersCount();
+    }, 30000);
+}
