@@ -1099,6 +1099,53 @@ document.querySelectorAll('.feed-tab').forEach(tab => {
     fetchTrades();
     setInterval(fetchTrades, 60000);
 })();
+// ========================================
+// XDEX API OVERRIDE - ONLY ADD THIS ONCE!
+// ========================================
+(function() {
+    const TOKEN_CA = '4o4UheANLdqF4gSV4zWTbCTCercQNSaTm6nVcDetzPb2';
+    const TOTAL_SUPPLY = 404404; // Your fixed supply
+    
+    // Override price fetch
+    window.fetchTokenPrice = async function() {
+        try {
+            const res = await fetch(`https://api.xdex.xyz/api/token-price/price?network=X1%20Mainnet&address=${TOKEN_CA}`);
+            const data = await res.json();
+            
+            if (data?.price) {
+                window.currentPrice = data.price;
+                document.getElementById('priceXNT').textContent = `${data.price.toFixed(6)} XNT`;
+                document.getElementById('chartPrice').textContent = `${data.price.toFixed(6)} XNT`;
+                
+                if (data.change_24h !== undefined) {
+                    const el = document.getElementById('chartPriceChange');
+                    const isPos = data.change_24h >= 0;
+                    el.textContent = `(${isPos ? '+' : ''}${data.change_24h.toFixed(2)}%)`;
+                    el.style.color = isPos ? '#00ff00' : '#ff0000';
+                }
+                return data.price;
+            }
+        } catch (e) {
+            console.error('Price error:', e);
+        }
+        return null;
+    };
+    
+    // Override market cap
+    window.calculateMarketCap = function() {
+        if (!window.currentPrice) return;
+        const mcap = TOTAL_SUPPLY * window.currentPrice;
+        const formatted = mcap >= 1e6 ? (mcap/1e6).toFixed(2)+'M' : 
+                         mcap >= 1e3 ? (mcap/1e3).toFixed(2)+'K' : mcap.toFixed(2);
+        document.getElementById('marketCap').textContent = `${formatted} XNT`;
+    };
+    
+    // Initialize
+    if (document.getElementById('priceXNT')) {
+        fetchTokenPrice().then(calculateMarketCap);
+        setInterval(() => fetchTokenPrice().then(calculateMarketCap), 30000);
+    }
+})();
 // PRICE FETCHING REPLACEMENT - USE XDEX API INSTEAD OF RPC
 
 // Replace the fetchTokenPrice function with XDEX API version
