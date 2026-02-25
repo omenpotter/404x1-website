@@ -1,0 +1,262 @@
+/* ================================================================
+   chat-additions.css  —  404x1
+   Load AFTER chat.css in HTML.
+   Adds ONLY new feature styles. Zero changes to existing rules.
+   All new class names prefixed "ca-" to avoid any collisions.
+   ================================================================ */
+
+/* ── Search button in .chat-status ───────────────────────────── */
+.ca-search-btn {
+    background: transparent;
+    border: 1px solid rgba(0,255,0,0.3);
+    color: var(--accent-green);
+    font-size: 1.05rem;
+    padding: 0.28rem 0.52rem;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s;
+    margin-right: 0.4rem;
+    line-height: 1;
+}
+.ca-search-btn:hover {
+    background: rgba(0,255,0,0.14);
+    border-color: var(--accent-green);
+}
+
+/* ── Pinned bar ───────────────────────────────────────────────── */
+.ca-pinned {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+    padding: 0.42rem 1.5rem;
+    background: rgba(0,255,0,0.055);
+    border-bottom: 1px solid rgba(0,255,0,0.18);
+    cursor: pointer;
+    transition: background 0.2s;
+}
+.ca-pinned:hover { background: rgba(0,255,0,0.1); }
+.ca-pin-icon { font-size: 0.88rem; flex-shrink: 0; }
+.ca-pinned-content { flex: 1; overflow: hidden; }
+.ca-pinned-label {
+    display: block; font-size: 0.6rem; color: var(--accent-green);
+    font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;
+    margin-bottom: 0.04rem;
+}
+.ca-pinned-text {
+    display: block; font-size: 0.77rem; color: var(--text-secondary);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.ca-unpin-btn {
+    background: transparent; border: none; color: #666; font-size: 0.95rem;
+    cursor: pointer; padding: 0.2rem 0.4rem; border-radius: 4px;
+    transition: color 0.2s; flex-shrink: 0; display: flex;
+    align-items: center; justify-content: center;
+}
+.ca-unpin-btn:hover { color: #ff4444; }
+
+/* ── Search overlay ───────────────────────────────────────────── */
+.ca-search-overlay {
+    flex: 0 0 auto;
+    flex-direction: column;
+    background: rgba(7,7,11,0.97);
+    border-bottom: 2px solid var(--accent-green);
+    padding: 0.68rem 1.5rem;
+    max-height: 54vh;
+    overflow: hidden;
+    animation: caSearchDown 0.18s ease-out;
+}
+@keyframes caSearchDown {
+    from { opacity: 0; transform: translateY(-8px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+.ca-search-row {
+    display: flex; align-items: center; gap: 0.55rem; margin-bottom: 0.55rem;
+}
+.ca-search-icon { font-size: 0.95rem; color: var(--accent-green); flex-shrink: 0; }
+.ca-search-input {
+    flex: 1;
+    background: rgba(16,16,24,0.95); border: 1px solid var(--accent-green);
+    color: var(--text-primary); font-family: 'Share Tech Mono', monospace;
+    font-size: 0.88rem; padding: 0.42rem 0.75rem; border-radius: 6px;
+    outline: none; box-shadow: 0 0 7px var(--glow-green);
+}
+.ca-search-input::placeholder { color: #555; }
+.ca-close-search {
+    background: transparent; border: 1px solid #444; color: #888;
+    font-size: 0.95rem; padding: 0.28rem 0.52rem; border-radius: 6px;
+    cursor: pointer; transition: all 0.2s;
+}
+.ca-close-search:hover { border-color: #ff4444; color: #ff4444; }
+
+.ca-search-results { overflow-y: auto; flex: 1; }
+.ca-search-results::-webkit-scrollbar { width: 5px; }
+.ca-search-results::-webkit-scrollbar-thumb { background: var(--accent-green); border-radius: 3px; }
+
+.ca-search-item {
+    padding: 0.52rem 0.75rem; border-bottom: 1px solid rgba(255,255,255,0.04);
+    cursor: pointer; border-radius: 5px; transition: background 0.13s;
+}
+.ca-search-item:hover { background: rgba(0,255,0,0.07); }
+.ca-search-user  { font-size: 0.72rem; color: var(--accent-green); font-weight: 600; margin-bottom: 0.12rem; }
+.ca-search-text  { font-size: 0.85rem; color: var(--text-primary); line-height: 1.4; }
+.ca-search-time  { font-size: 0.67rem; color: #666; margin-top: 0.12rem; }
+.ca-search-hit   { background: rgba(0,255,0,0.22); color: #00ff00; border-radius: 2px; padding: 0 2px; font-style: normal; }
+.ca-search-status { text-align: center; padding: 1.3rem; color: #666; font-size: 0.87rem; }
+
+/* ── Scroll-to-bottom button ──────────────────────────────────── */
+.ca-scroll-btn {
+    position: absolute;
+    bottom: 112px; right: 16px;
+    width: 40px; height: 40px;
+    background: var(--bg-secondary);
+    border: 2px solid var(--accent-green);
+    color: var(--accent-green);
+    font-size: 1.15rem; font-weight: bold;
+    border-radius: 50%; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    z-index: 100; box-shadow: 0 2px 14px var(--glow-green);
+    transition: all 0.2s;
+}
+.ca-scroll-btn:hover {
+    background: rgba(0,255,0,0.18); transform: translateY(-2px);
+    box-shadow: 0 4px 22px var(--glow-green);
+}
+
+/* ── Typing indicator ─────────────────────────────────────────── */
+.ca-typing {
+    flex: 0 0 auto; display: flex; align-items: center;
+    gap: 0.45rem; padding: 0.22rem 1.5rem; min-height: 20px;
+}
+.ca-typing-text { font-size: 0.74rem; color: #888; font-style: italic; }
+.ca-typing-dots { display: flex; gap: 3px; align-items: center; }
+.ca-typing-dots span {
+    width: 5px; height: 5px; background: #888; border-radius: 50%;
+    animation: caTypeBounce 1.2s infinite ease-in-out;
+}
+.ca-typing-dots span:nth-child(2) { animation-delay: 0.2s; }
+.ca-typing-dots span:nth-child(3) { animation-delay: 0.4s; }
+@keyframes caTypeBounce {
+    0%,80%,100% { transform: scale(1); opacity: 0.5; }
+    40%         { transform: scale(1.5); opacity: 1; }
+}
+
+/* ── Message grouping ─────────────────────────────────────────── */
+.message.ca-grouped { margin-top: 0.08rem; padding-top: 0.14rem; }
+.ca-grouped-time {
+    position: absolute; right: 0.5rem; bottom: 0.22rem;
+    font-size: 0.62rem; color: transparent; transition: color 0.2s;
+}
+.message.ca-grouped:hover .ca-grouped-time { color: #666; }
+
+/* ── Reply quote (inside message) ────────────────────────────── */
+.ca-reply-quote {
+    display: flex; flex-direction: column; gap: 0.1rem;
+    padding: 0.32rem 0.62rem; margin-bottom: 0.3rem;
+    border-left: 3px solid var(--accent-green);
+    background: rgba(0,255,0,0.05); border-radius: 4px;
+    cursor: pointer; transition: background 0.14s;
+}
+.ca-reply-quote:hover { background: rgba(0,255,0,0.1); }
+.ca-reply-quote-user { font-size: 0.72rem; font-weight: 700; color: var(--accent-green); }
+.ca-reply-quote-text { font-size: 0.77rem; color: #aaa; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+
+/* ── Reply preview bar (above input) ─────────────────────────── */
+.ca-reply-bar {
+    display: flex; align-items: center; gap: 0.52rem;
+    padding: 0.32rem 1rem;
+    background: rgba(0,255,0,0.06);
+    border-top: 1px solid rgba(0,255,0,0.2);
+    animation: slideIn 0.15s ease-out;
+}
+.ca-reply-bar-user { font-size: 0.77rem; font-weight: 700; color: var(--accent-green); white-space: nowrap; }
+.ca-reply-bar-text {
+    flex: 1; font-size: 0.74rem; color: #999;
+    overflow: hidden; white-space: nowrap; text-overflow: ellipsis;
+}
+.ca-reply-bar-cancel {
+    background: transparent; border: none; color: #666; font-size: 0.95rem;
+    cursor: pointer; padding: 0.18rem 0.38rem; border-radius: 4px; flex-shrink: 0;
+    transition: color 0.2s;
+}
+.ca-reply-bar-cancel:hover { color: #ff4444; }
+
+/* ── Forwarded label ──────────────────────────────────────────── */
+.ca-fwd-label {
+    font-size: 0.7rem; color: #888; font-style: italic;
+    margin-bottom: 0.22rem; padding-left: 0.48rem;
+    border-left: 2px solid #555;
+}
+
+/* ── Edited label ─────────────────────────────────────────────── */
+.ca-edited {
+    display: inline; font-size: 0.66rem; color: #666;
+    font-style: italic; margin-left: 0.32rem;
+}
+
+/* ── Deleted placeholder ──────────────────────────────────────── */
+.ca-deleted { font-size: 0.82rem; color: #555; font-style: italic; }
+
+/* ── Flash highlight when jumping to a message ────────────────── */
+@keyframes caFlash {
+    0%   { background: rgba(0,255,0,0.22); box-shadow: 0 0 12px rgba(0,255,0,0.35); }
+    100% { background: transparent; box-shadow: none; }
+}
+.ca-highlight { animation: caFlash 1.6s ease-out forwards; border-radius: 1.1rem; }
+
+/* ── Context menu ─────────────────────────────────────────────── */
+.ca-ctx-menu {
+    position: fixed; z-index: 99999;
+    background: #18181f; border: 1px solid rgba(0,255,0,0.36);
+    border-radius: 8px; padding: 0.22rem 0; min-width: 182px;
+    box-shadow: 0 6px 28px rgba(0,0,0,0.72), 0 0 10px rgba(0,255,0,0.1);
+    animation: caCtxIn 0.11s ease-out;
+}
+@keyframes caCtxIn {
+    from { opacity: 0; transform: scale(0.93); }
+    to   { opacity: 1; transform: scale(1); }
+}
+.ca-ctx-item {
+    display: block; width: 100%; text-align: left;
+    background: transparent; border: none;
+    color: var(--text-primary); padding: 0.56rem 0.95rem;
+    font-size: 0.86rem; font-family: 'Share Tech Mono', monospace;
+    cursor: pointer; transition: background 0.12s;
+}
+.ca-ctx-item:hover     { background: rgba(0,255,0,0.09); color: var(--accent-green); }
+.ca-ctx-item:first-child { border-radius: 8px 8px 0 0; }
+.ca-ctx-item:last-child  { border-radius: 0 0 8px 8px; }
+.ca-ctx-danger           { color: #ff6060; }
+.ca-ctx-danger:hover     { background: rgba(255,50,50,0.09); color: #ff4444; }
+
+/* ── Inline edit ──────────────────────────────────────────────── */
+.ca-edit-row    { display: flex; gap: 0.38rem; align-items: center; flex-wrap: wrap; }
+.ca-edit-input  {
+    flex: 1; min-width: 110px; padding: 0.36rem 0.62rem;
+    background: rgba(7,7,14,0.94); border: 1px solid var(--accent-green);
+    color: var(--text-primary); font-family: 'Share Tech Mono', monospace;
+    font-size: 0.86rem; border-radius: 5px; outline: none;
+    box-shadow: 0 0 7px var(--glow-green);
+}
+.ca-edit-save   {
+    padding: 0.3rem 0.62rem; background: rgba(0,255,0,0.12);
+    border: 1px solid var(--accent-green); color: var(--accent-green);
+    font-size: 0.76rem; border-radius: 5px; cursor: pointer;
+    transition: background 0.18s; white-space: nowrap;
+}
+.ca-edit-save:hover  { background: rgba(0,255,0,0.26); }
+.ca-edit-cancel {
+    padding: 0.3rem 0.52rem; background: transparent; border: 1px solid #555;
+    color: #888; font-size: 0.8rem; border-radius: 5px; cursor: pointer; transition: all 0.18s;
+}
+.ca-edit-cancel:hover { border-color: #ff4444; color: #ff4444; }
+
+/* ── Responsive ───────────────────────────────────────────────── */
+@media (max-width: 768px) {
+    .ca-search-overlay  { padding: 0.52rem 1rem; }
+    .ca-pinned          { padding: 0.38rem 1rem; }
+    .ca-typing          { padding: 0.2rem 1rem; }
+    .ca-scroll-btn      { bottom: 102px; right: 10px; width: 36px; height: 36px; font-size: 1rem; }
+    .ca-ctx-menu        { min-width: 162px; }
+    .ca-ctx-item        { font-size: 0.82rem; padding: 0.6rem 0.85rem; }
+}
