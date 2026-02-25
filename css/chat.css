@@ -1,25 +1,20 @@
 /* ============================================
    GLOBAL RESET
    ============================================ */
-
 * {
     box-sizing: border-box;
 }
-
 html, body {
     margin: 0;
     padding: 0;
     height: 100vh;
 }
-
 body {
     overflow: hidden;
 }
-
 /* ============================================
    CHAT PAGE - FIXED POSITIONING
    ============================================ */
-
 .chat-page {
     position: fixed;
     top: 70px;
@@ -31,7 +26,6 @@ body {
     align-items: stretch;
     background: var(--bg-primary);
 }
-
 .chat-window {
     width: 100%;
     max-width: 1400px;
@@ -40,11 +34,9 @@ body {
     flex-direction: column;
     background: var(--bg-primary);
 }
-
 /* ============================================
    HEADER
    ============================================ */
-
 .chat-header {
     flex: 0 0 auto;
     padding: 0.8rem 1.5rem;
@@ -55,13 +47,11 @@ body {
     justify-content: space-between;
     backdrop-filter: blur(10px);
 }
-
 .chat-title {
     display: flex;
     align-items: center;
     gap: 1.5rem;
 }
-
 .chat-title h2 {
     margin: 0;
     color: var(--accent-green);
@@ -70,7 +60,6 @@ body {
     letter-spacing: 1px;
     text-shadow: 0 0 10px var(--glow-green);
 }
-
 .user-info-mini {
     display: flex;
     flex-direction: column;
@@ -78,21 +67,17 @@ body {
     color: var(--text-secondary);
     line-height: 1.2;
 }
-
 #username-mini {
     color: var(--text-primary);
     font-weight: 600;
 }
-
 .rp-mini {
     color: var(--accent-green);
     font-weight: bold;
 }
-
 .rp-value {
     color: var(--accent-green);
 }
-
 .chat-status {
     display: flex;
     align-items: center;
@@ -101,7 +86,6 @@ body {
     font-size: 0.9rem;
     font-weight: 500;
 }
-
 .status-dot {
     width: 10px;
     height: 10px;
@@ -110,7 +94,6 @@ body {
     animation: pulse 2s infinite;
     box-shadow: 0 0 10px var(--glow-green);
 }
-
 @keyframes pulse {
     0%, 100% {
         opacity: 1;
@@ -121,11 +104,9 @@ body {
         transform: scale(1.2);
     }
 }
-
 /* ============================================
    MESSAGES CONTAINER
    ============================================ */
-
 .messages-container {
     flex: 1 1 auto;
     overflow-y: auto;
@@ -136,25 +117,20 @@ body {
     gap: 0.8rem;
     scroll-behavior: smooth;
 }
-
 .messages-container::-webkit-scrollbar {
     width: 8px;
 }
-
 .messages-container::-webkit-scrollbar-track {
     background: var(--bg-secondary);
     border-radius: 4px;
 }
-
 .messages-container::-webkit-scrollbar-thumb {
     background: var(--accent-green);
     border-radius: 4px;
 }
-
 /* ============================================
    MESSAGE BUBBLES - TELEGRAM STYLE
    ============================================ */
-
 .message {
     max-width: 70%;
     padding: 0.7rem 1rem;
@@ -165,7 +141,6 @@ body {
     animation: messageSlide 0.3s ease-out;
     position: relative;
 }
-
 @keyframes messageSlide {
     from {
         opacity: 0;
@@ -176,7 +151,6 @@ body {
         transform: translateY(0);
     }
 }
-
 .message.own-message {
     align-self: flex-end;
     background: rgba(0, 220, 0, 0.18);
@@ -184,7 +158,6 @@ body {
     border-radius: 1.1rem 1.1rem 0.4rem 1.1rem;
     color: #e0ffe0;
 }
-
 .message:not(.own-message) {
     align-self: flex-start;
     background: rgba(40, 40, 50, 0.75);
@@ -192,7 +165,6 @@ body {
     border-radius: 1.1rem 1.1rem 1.1rem 0.4rem;
     color: #e0e0ff;
 }
-
 .message-header {
     display: flex;
     justify-content: space-between;
@@ -201,39 +173,32 @@ body {
     font-size: 0.8rem;
     opacity: 0.85;
 }
-
 .username {
     font-weight: 600;
     color: var(--accent-green);
 }
-
 .own-username {
     color: #0f0 !important;
 }
-
 .time {
     font-size: 0.7rem;
     color: #888;
     margin-left: 0.5rem;
 }
-
 .message-text {
     color: inherit;
     display: block;
     margin-bottom: 0.3rem;
 }
-
 /* ============================================
    REACTIONS
    ============================================ */
-
 .message-reactions {
     display: flex;
     flex-wrap: wrap;
     gap: 0.4rem;
     margin-top: 0.5rem;
 }
-
 .reaction-bubble {
     display: inline-flex;
     align-items: center;
@@ -247,35 +212,30 @@ body {
     transition: all 0.2s;
     user-select: none;
 }
-
 .reaction-bubble:hover {
     background: rgba(0, 255, 0, 0.2);
     border-color: var(--accent-green);
     transform: scale(1.05);
 }
-
 .reaction-bubble.active {
     background: rgba(0, 255, 0, 0.25);
     border-color: var(--accent-green);
     border-width: 2px;
     font-weight: bold;
 }
-
 .reaction-count {
     font-size: 0.75rem;
     font-weight: 600;
     color: var(--accent-green);
 }
-
 .message-actions {
-    display: flex;   /* ← ONLY CHANGE: now always visible */
+    display: flex; /* FIXED: always visible (was display: none) */
     flex-wrap: wrap;
     gap: 0.3rem;
     margin-top: 0.5rem;
     padding-top: 0.5rem;
     border-top: 1px solid rgba(255, 255, 255, 0.05);
 }
-
 .quick-react-btn,
 .reply-btn {
     background: rgba(0, 255, 0, 0.1);
@@ -288,23 +248,19 @@ body {
     transition: all 0.2s;
     line-height: 1;
 }
-
 .quick-react-btn:hover,
 .reply-btn:hover {
     background: rgba(0, 255, 0, 0.2);
     border-color: var(--accent-green);
     transform: scale(1.1);
 }
-
 .reply-btn {
     font-size: 0.85rem;
     padding: 0.4rem 0.8rem;
 }
-
 /* ============================================
    INPUT CONTAINER - ZERO GAP
    ============================================ */
-
 .chat-input-container {
     flex: 0 0 auto;
     padding: 0.5rem 1rem 0 1rem;
@@ -315,7 +271,6 @@ body {
     flex-direction: column;
     gap: 0;
 }
-
 .chat-input-wrapper {
     display: flex;
     gap: 0.5rem;
@@ -324,7 +279,6 @@ body {
     padding: 0;
     position: relative;
 }
-
 .input-btn {
     width: 36px;
     height: 36px;
@@ -340,26 +294,21 @@ body {
     justify-content: center;
     flex-shrink: 0;
 }
-
 .input-btn:hover:not(:disabled) {
     border-color: var(--accent-green);
     background: rgba(0, 255, 0, 0.1);
     transform: scale(1.05);
 }
-
 .input-btn:disabled {
     opacity: 0.3;
     cursor: not-allowed;
 }
-
 .emoji-btn-left {
     order: 0;
 }
-
 .attach-btn {
     order: 2;
 }
-
 .chat-input {
     flex: 1;
     order: 1;
@@ -374,19 +323,16 @@ body {
     line-height: 1.3;
     height: 36px;
 }
-
 .chat-input:focus {
     outline: none;
     border-color: var(--accent-green);
     box-shadow: 0 0 10px var(--glow-green);
     background: rgba(20, 20, 30, 0.9);
 }
-
 .chat-input:disabled {
     opacity: 0.5;
     cursor: not-allowed;
 }
-
 .send-btn {
     order: 3;
     padding: 0.5rem 1.2rem;
@@ -403,17 +349,14 @@ body {
     flex-shrink: 0;
     height: 36px;
 }
-
 .send-btn:hover:not(:disabled) {
     transform: translateY(-2px);
     box-shadow: 0 5px 20px var(--glow-green);
 }
-
 .send-btn:disabled {
     opacity: 0.5;
     cursor: not-allowed;
 }
-
 .input-info {
     display: flex;
     align-items: flex-end;
@@ -423,15 +366,12 @@ body {
     margin: 0;
     line-height: 1.2;
 }
-
 .char-count {
     color: var(--text-muted);
 }
-
 /* ============================================
    EMOJI PICKER
    ============================================ */
-
 #emoji-picker {
     position: fixed;
     bottom: 130px;
@@ -450,7 +390,6 @@ body {
     box-shadow: 0 4px 20px rgba(0, 255, 0, 0.3);
     animation: slideUpLeft 0.2s ease-out;
 }
-
 @keyframes slideUpLeft {
     from {
         opacity: 0;
@@ -461,21 +400,17 @@ body {
         transform: translateY(0);
     }
 }
-
 #emoji-picker::-webkit-scrollbar {
     width: 8px;
 }
-
 #emoji-picker::-webkit-scrollbar-track {
     background: #0a0a0a;
     border-radius: 4px;
 }
-
 #emoji-picker::-webkit-scrollbar-thumb {
     background: var(--accent-green);
     border-radius: 4px;
 }
-
 .emoji-picker-btn {
     background: transparent;
     border: none;
@@ -486,20 +421,16 @@ body {
     transition: all 0.2s;
     line-height: 1;
 }
-
 .emoji-picker-btn:hover {
     background: rgba(0, 255, 0, 0.2);
     transform: scale(1.1);
 }
-
 .emoji-picker-btn:active {
     transform: scale(0.9);
 }
-
 /* ============================================
    ATTACHMENT PREVIEW
    ============================================ */
-
 .attachment-preview {
     display: flex;
     align-items: center;
@@ -511,25 +442,20 @@ body {
     margin-bottom: 0.5rem;
     font-size: 0.85rem;
 }
-
 .attachment-preview .file-icon {
     font-size: 1.5rem;
 }
-
 .attachment-preview .file-info {
     flex: 1;
     color: var(--text-primary);
 }
-
 .attachment-preview .file-name {
     font-weight: 600;
 }
-
 .attachment-preview .file-size {
     font-size: 0.75rem;
     color: var(--text-muted);
 }
-
 .attachment-preview .remove-btn {
     background: rgba(255, 0, 0, 0.2);
     border: 1px solid #ff0000;
@@ -539,11 +465,9 @@ body {
     cursor: pointer;
     font-size: 0.75rem;
 }
-
 /* ============================================
    CANCEL REPLY BUTTON
    ============================================ */
-
 #cancel-reply-btn {
     position: absolute;
     top: -40px;
@@ -558,7 +482,6 @@ body {
     z-index: 10;
     animation: slideIn 0.2s ease-out;
 }
-
 @keyframes slideIn {
     from {
         opacity: 0;
@@ -569,11 +492,9 @@ body {
         transform: translateY(0);
     }
 }
-
 /* ============================================
    RP NOTIFICATION
    ============================================ */
-
 .rp-notification {
     position: fixed;
     top: 90px;
@@ -589,7 +510,6 @@ body {
     animation: rpSlideIn 0.3s ease-out;
     box-shadow: 0 4px 20px var(--glow-green);
 }
-
 @keyframes rpSlideIn {
     from {
         opacity: 0;
@@ -600,11 +520,9 @@ body {
         transform: translateX(0);
     }
 }
-
 /* ============================================
    RP INFO HEADER (NEW)
    ============================================ */
-
 .rp-info-header {
     color: var(--accent-green);
     font-size: 0.7rem;
@@ -612,91 +530,84 @@ body {
     font-weight: 500;
     text-shadow: 0 0 5px var(--glow-green);
 }
-
 /* ============================================
    RESPONSIVE
    ============================================ */
-
 @media (max-width: 768px) {
     .chat-page {
         top: 60px;
     }
-    
+   
     .chat-header {
         padding: 0.6rem 1rem;
     }
-    
+   
     .chat-title h2 {
         font-size: 1rem;
     }
-    
+   
     .user-info-mini {
         display: none;
     }
-    
+   
     .messages-container {
         padding: 1rem;
     }
-    
+   
     .message {
         max-width: 85%;
         font-size: 0.9rem;
     }
-    
+   
     .chat-input-container {
         padding: 0.5rem 1rem 0 1rem;
     }
-    
+   
     .send-btn {
         padding: 0.5rem 1rem;
         font-size: 0.75rem;
     }
-    
+   
     #emoji-picker {
         max-width: 350px;
         grid-template-columns: repeat(8, 1fr);
         left: 10px;
     }
-    
+   
     .rp-info-header {
         font-size: 0.6rem;
     }
 }
-
 @media (max-width: 480px) {
     .message {
         max-width: 90%;
     }
-    
+   
     .chat-input-wrapper {
         gap: 0.4rem;
     }
-    
+   
     .input-btn {
         width: 35px;
         height: 35px;
         font-size: 1.1rem;
     }
-    
+   
     .send-btn {
         padding: 0.5rem 0.8rem;
     }
 }
-
 /* ============================================
    STATES
    ============================================ */
-
 .message.loading {
     opacity: 0.5;
     pointer-events: none;
 }
-
 .message.deleted {
     opacity: 0.4;
     font-style: italic;
 }
-
 .message.deleted .message-text {
     color: #666;
     text-decoration: line-through;
